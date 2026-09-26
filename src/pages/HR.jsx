@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Row, Col, Typography, Table, Select, Switch, Avatar, Space, Tag } from 'antd';
 import { CheckOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
-const staffData = [
+const initialStaffData = [
   {
     key: '1',
     initials: 'ML',
@@ -52,53 +52,74 @@ const staffData = [
   },
 ];
 
-const columns = [
-  {
-    title: 'Nhân viên',
-    key: 'staff',
-    render: (_, record) => (
-      <Space size="middle">
-        <Avatar style={{ backgroundColor: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb' }}>
-          {record.initials}
-        </Avatar>
-        <div>
-          <div style={{ fontWeight: '500', color: '#1f2937' }}>{record.name}</div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>{record.email}</div>
-        </div>
-      </Space>
-    ),
-  },
-  {
-    title: 'Vai trò',
-    dataIndex: 'role',
-    key: 'role',
-    render: (role) => (
-      <Select defaultValue={role} style={{ width: 140 }} bordered={false} className="role-select" popupMatchSelectWidth={false}>
-        <Select.Option value="Quản lý">Quản lý</Select.Option>
-        <Select.Option value="Lễ tân">Lễ tân</Select.Option>
-        <Select.Option value="Kỹ thuật viên">Kỹ thuật viên</Select.Option>
-      </Select>
-    ),
-  },
-  {
-    title: 'Hoạt động',
-    dataIndex: 'activity',
-    key: 'activity',
-    render: (text) => (
-      <Text style={{ color: text === 'Đang hoạt động' ? '#4b5563' : '#9ca3af', fontStyle: text === 'Đang hoạt động' ? 'normal' : 'italic' }}>
-        {text}
-      </Text>
-    ),
-  },
-  {
-    title: 'Truy cập',
-    dataIndex: 'access',
-    key: 'access',
-    render: (checked) => <Switch defaultChecked={checked} />,
-  },
-];
-
 const HR = () => {
+  const [staffData, setStaffData] = useState(initialStaffData);
+
+  const toggleAccess = (key, checked) => {
+    setStaffData(prevData => prevData.map(item => 
+      item.key === key ? { ...item, access: checked } : item
+    ));
+  };
+
+  const columns = [
+    {
+      title: 'Nhân viên',
+      key: 'staff',
+      render: (_, record) => (
+        <Space size="middle">
+          <Avatar style={{ backgroundColor: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb' }}>
+            {record.initials}
+          </Avatar>
+          <div>
+            <div style={{ fontWeight: '500', color: '#1f2937' }}>{record.name}</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>{record.email}</div>
+          </div>
+        </Space>
+      ),
+    },
+    {
+      title: 'Vai trò',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role, record) => (
+        <Select 
+          defaultValue={role} 
+          style={{ width: 140 }} 
+          bordered={false} 
+          className="role-select" 
+          popupMatchSelectWidth={false}
+          onChange={(value) => {
+            setStaffData(prev => prev.map(item => item.key === record.key ? { ...item, role: value } : item));
+          }}
+        >
+          <Select.Option value="Quản lý">Quản lý</Select.Option>
+          <Select.Option value="Lễ tân">Lễ tân</Select.Option>
+          <Select.Option value="Kỹ thuật viên">Kỹ thuật viên</Select.Option>
+        </Select>
+      ),
+    },
+    {
+      title: 'Hoạt động',
+      dataIndex: 'activity',
+      key: 'activity',
+      render: (text) => (
+        <Text style={{ color: text === 'Đang hoạt động' ? '#4b5563' : '#9ca3af', fontStyle: text === 'Đang hoạt động' ? 'normal' : 'italic' }}>
+          {text}
+        </Text>
+      ),
+    },
+    {
+      title: 'Truy cập',
+      key: 'access',
+      render: (_, record) => (
+        <Switch 
+          checked={record.access} 
+          onChange={(checked) => toggleAccess(record.key, checked)}
+        />
+      ),
+    },
+  ];
+
   return (
     <Row gutter={24}>
       <Col span={16}>

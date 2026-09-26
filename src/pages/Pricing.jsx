@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Table, Typography, Button, Tag, Switch, Space } from 'antd';
 import { PlusOutlined, EditOutlined, GlobalOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
-const data = [
+const initialData = [
   {
     key: '1',
     name: 'Vệ sinh laptop / PC',
@@ -64,54 +64,66 @@ const getGroupTag = (group) => {
   }
 };
 
-const columns = [
-  {
-    title: 'Tên dịch vụ',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <Text style={{ fontWeight: '500' }}>{text}</Text>,
-  },
-  {
-    title: 'Nhóm',
-    dataIndex: 'group',
-    key: 'group',
-    render: (text) => getGroupTag(text),
-  },
-  {
-    title: 'Tiền công thợ',
-    dataIndex: 'laborCost',
-    key: 'laborCost',
-  },
-  {
-    title: 'Giá linh kiện',
-    dataIndex: 'partsCost',
-    key: 'partsCost',
-    render: (text) => <Text type={text === '—' ? 'secondary' : 'default'}>{text}</Text>,
-  },
-  {
-    title: 'Áp dụng',
-    key: 'isActive',
-    render: (_, record) => (
-      <Space>
-        <Switch checked={record.isActive} size="small" />
-        <Text type={record.isActive ? 'default' : 'secondary'} style={{ fontSize: '13px' }}>
-          {record.isActive ? 'Đang áp dụng' : 'Ngừng'}
-        </Text>
-      </Space>
-    ),
-  },
-  {
-    title: 'Thao tác',
-    key: 'action',
-    render: () => (
-      <Button type="text" icon={<EditOutlined />} style={{ color: '#4b5563', display: 'flex', alignItems: 'center' }}>
-        Chỉnh sửa
-      </Button>
-    ),
-  },
-];
-
 const Pricing = () => {
+  const [data, setData] = useState(initialData);
+
+  const toggleStatus = (key, checked) => {
+    setData(prevData => prevData.map(item => 
+      item.key === key ? { ...item, isActive: checked } : item
+    ));
+  };
+
+  const columns = [
+    {
+      title: 'Tên dịch vụ',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text) => <Text style={{ fontWeight: '500' }}>{text}</Text>,
+    },
+    {
+      title: 'Nhóm',
+      dataIndex: 'group',
+      key: 'group',
+      render: (text) => getGroupTag(text),
+    },
+    {
+      title: 'Tiền công thợ',
+      dataIndex: 'laborCost',
+      key: 'laborCost',
+    },
+    {
+      title: 'Giá linh kiện',
+      dataIndex: 'partsCost',
+      key: 'partsCost',
+      render: (text) => <Text type={text === '—' ? 'secondary' : 'default'}>{text}</Text>,
+    },
+    {
+      title: 'Áp dụng',
+      key: 'isActive',
+      render: (_, record) => (
+        <Space>
+          <Switch 
+            checked={record.isActive} 
+            size="small" 
+            onChange={(checked) => toggleStatus(record.key, checked)} 
+          />
+          <Text type={record.isActive ? 'default' : 'secondary'} style={{ fontSize: '13px' }}>
+            {record.isActive ? 'Đang áp dụng' : 'Ngừng'}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      render: () => (
+        <Button type="text" icon={<EditOutlined />} style={{ color: '#4b5563', display: 'flex', alignItems: 'center' }}>
+          Chỉnh sửa
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>

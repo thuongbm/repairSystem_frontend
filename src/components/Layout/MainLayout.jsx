@@ -106,23 +106,23 @@ const MainLayout = () => {
              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>{menuItems.find(item => item.key === getSelectedKey())?.label}</h2>
              <span style={{ color: '#8c8c8c', fontSize: '13px' }}>Hệ thống quản lý bảo trì & sửa chữa</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', lineHeight: 'normal' }}>
             <Input 
               placeholder="Tìm mã phiếu hoặc số điện thoại..." 
               prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
               style={{ width: 320, borderRadius: '20px', padding: '8px 16px', background: '#f5f5f5', border: 'none' }}
             />
-            <Badge dot color="red" offset={[-2, 4]}>
-              <BellOutlined style={{ fontSize: '20px', color: '#595959', cursor: 'pointer' }} />
+            <Badge dot color="red">
+              <BellOutlined style={{ fontSize: '20px', color: '#595959', cursor: 'pointer', display: 'block' }} />
             </Badge>
             <Dropdown menu={{ items: [{ key: 'logout', label: 'Đăng xuất' }] }} trigger={['click']}>
-              <Space style={{ cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                 <Avatar style={{ backgroundColor: '#1677ff' }}>TML</Avatar>
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ fontWeight: '600', fontSize: '14px', lineHeight: '1.2' }}>Mỹ Linh</div>
-                  <div style={{ fontSize: '12px', color: '#8c8c8c' }}>Quản lý</div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontWeight: '600', fontSize: '14px', lineHeight: '1.2' }}>Mỹ Linh</span>
+                  <span style={{ fontSize: '12px', color: '#8c8c8c', lineHeight: '1.2' }}>Quản lý</span>
                 </div>
-              </Space>
+              </div>
             </Dropdown>
           </div>
         </Header>

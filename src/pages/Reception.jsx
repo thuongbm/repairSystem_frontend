@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Table, Typography, Input, Button, Tag, Space, Avatar } from 'antd';
 import { SearchOutlined, PlusOutlined } from '@ant-design/icons';
 
@@ -131,6 +131,18 @@ const columns = [
 ];
 
 const Reception = () => {
+  const [searchText, setSearchText] = useState('');
+
+  const filteredData = data.filter(item => {
+    const searchLower = searchText.toLowerCase();
+    // Loại bỏ dấu cách và ký tự đặc biệt trong SĐT để dễ tìm kiếm hơn (nếu có)
+    const phoneClean = item.phone.replace(/[^0-9]/g, ''); 
+    const searchPhoneClean = searchText.replace(/[^0-9]/g, '');
+    
+    return item.code.toLowerCase().includes(searchLower) || 
+           (searchPhoneClean && phoneClean.includes(searchPhoneClean));
+  });
+
   return (
     <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -143,6 +155,9 @@ const Reception = () => {
             placeholder="Tìm mã phiếu / SĐT" 
             prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />} 
             style={{ width: 250, borderRadius: '6px' }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
           />
           <Button type="primary" icon={<PlusOutlined />} style={{ borderRadius: '6px', background: '#1677ff' }}>
             Tiếp nhận máy
@@ -152,7 +167,7 @@ const Reception = () => {
 
       <Table 
         columns={columns} 
-        dataSource={data} 
+        dataSource={filteredData} 
         pagination={false}
         rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
       />
