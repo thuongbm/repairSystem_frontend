@@ -7,6 +7,7 @@ import Reception from './pages/Reception';
 import Pricing from './pages/Pricing';
 import HR from './pages/HR';
 import Login from './pages/Login';
+import Warehouse from './pages/Warehouse';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
@@ -27,6 +28,11 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={['admin', 'technician']} />}>
                 <Route path="appointments" element={<Appointments />} />
                 <Route path="reception" element={<Reception />} />
+              </Route>
+
+              {/* Admin and Warehouse */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'warehouse']} />}>
+                <Route path="warehouse" element={<Warehouse />} />
               </Route>
 
               {/* Admin only */}

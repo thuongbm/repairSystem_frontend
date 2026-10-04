@@ -11,6 +11,7 @@ import {
   BellOutlined,
   LogoutOutlined,
   UserOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -40,6 +41,12 @@ const MainLayout = () => {
       icon: <LaptopOutlined />,
       label: 'Tiếp nhận máy',
       roles: ['admin', 'technician']
+    },
+    {
+      key: 'warehouse',
+      icon: <AppstoreOutlined />,
+      label: 'Quản lý kho vật tư',
+      roles: ['admin', 'warehouse']
     },
     {
       key: 'pricing',
