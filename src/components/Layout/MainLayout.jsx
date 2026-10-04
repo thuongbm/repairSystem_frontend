@@ -27,7 +27,7 @@ const MainLayout = () => {
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
-      label: 'Tổng quan',
+      label: user?.role === 'customer' ? 'Dịch vụ của tôi' : 'Tổng quan',
       roles: ['admin', 'technician', 'warehouse', 'customer']
     },
     {
@@ -95,10 +95,11 @@ const MainLayout = () => {
     <Layout style={{ minHeight: '100vh' }}>
       <Sider 
         width={250} 
+        breakpoint="lg"
+        collapsedWidth="0"
         style={{ 
-          background: '#1a2235', 
-          display: 'flex', 
-          flexDirection: 'column' 
+          background: '#1a2235',
+          zIndex: 10
         }}
       >
         <div style={{ padding: '20px', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -136,16 +137,20 @@ const MainLayout = () => {
       </Sider>
       
       <Layout>
-        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', height: '70px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: '1.2' }}>
-             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>{menuItems.find(item => item.key === getSelectedKey())?.label || 'Tổng quan'}</h2>
-             <span style={{ color: '#8c8c8c', fontSize: '13px' }}>Hệ thống quản lý bảo trì & sửa chữa</span>
+        <Header style={{ padding: '0 16px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', height: '70px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: '1.2', flex: 1, overflow: 'hidden' }}>
+             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{menuItems.find(item => item.key === getSelectedKey())?.label || 'Tổng quan'}</h2>
+             <span style={{ color: '#8c8c8c', fontSize: '12px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Hệ thống quản lý bảo trì & sửa chữa</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', lineHeight: 'normal' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', lineHeight: 'normal' }}>
+            <div className="desktop-search" style={{ display: 'none' }}>
+              {/* Note: In a real app we'd use media queries in CSS. Doing inline styles for quick fix here is limited. */}
+              {/* So we will let the Input shrink by using max-width */}
+            </div>
             <Input 
-              placeholder="Tìm mã phiếu hoặc số điện thoại..." 
+              placeholder="Tìm mã..." 
               prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-              style={{ width: 320, borderRadius: '20px', padding: '8px 16px', background: '#f5f5f5', border: 'none' }}
+              style={{ maxWidth: 200, borderRadius: '20px', padding: '8px 16px', background: '#f5f5f5', border: 'none' }}
             />
             <Badge dot color="red">
               <BellOutlined style={{ fontSize: '20px', color: '#595959', cursor: 'pointer', display: 'block' }} />

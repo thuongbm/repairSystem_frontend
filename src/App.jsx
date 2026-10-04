@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/Layout/MainLayout';
-import Dashboard from './pages/Dashboard';
+import Home from './pages/Home';
 import Appointments from './pages/Appointments';
 import Reception from './pages/Reception';
 import Pricing from './pages/Pricing';
@@ -21,8 +21,8 @@ function App() {
           
           <Route path="/" element={<ProtectedRoute />}>
             <Route element={<MainLayout />}>
-              {/* Everyone can access Dashboard */}
-              <Route index element={<Dashboard />} />
+              {/* Home determines whether to show Dashboard or CustomerPortal */}
+              <Route index element={<Home />} />
               
               {/* Admin and Technician */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'technician']} />}>
