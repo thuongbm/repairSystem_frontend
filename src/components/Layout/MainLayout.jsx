@@ -9,61 +9,48 @@ import {
   QuestionCircleOutlined,
   SearchOutlined,
   BellOutlined,
-  LogoutOutlined,
-  UserOutlined,
-  AppstoreOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 
 const { Header, Sider, Content } = Layout;
 
 const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
 
-  const allMenuItems = [
+  const menuItems = [
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
-      label: user?.role === 'customer' ? 'Dịch vụ của tôi' : 'Tổng quan',
-      roles: ['admin', 'technician', 'warehouse', 'customer']
+      label: 'Tổng quan',
+    },
+    {
+      key: 'technician',
+      icon: <ToolOutlined />,
+      label: 'Bàn làm việc KTV',
     },
     {
       key: 'appointments',
       icon: <CalendarOutlined />,
       label: 'Điều phối lịch hẹn',
-      roles: ['admin', 'technician']
     },
     {
       key: 'reception',
       icon: <LaptopOutlined />,
       label: 'Tiếp nhận máy',
-      roles: ['admin', 'technician']
-    },
-    {
-      key: 'warehouse',
-      icon: <AppstoreOutlined />,
-      label: 'Quản lý kho vật tư',
-      roles: ['admin', 'warehouse']
     },
     {
       key: 'pricing',
       icon: <DollarOutlined />,
       label: 'Bảng giá dịch vụ',
-      roles: ['admin']
     },
     {
       key: 'hr',
       icon: <TeamOutlined />,
       label: 'Quản trị nhân sự',
-      roles: ['admin']
     },
   ];
-
-  // Filter menu items based on current user's role
-  const menuItems = allMenuItems.filter(item => user && item.roles.includes(user.role));
 
   const handleMenuClick = ({ key }) => {
     if (key === 'dashboard') navigate('/');
@@ -75,31 +62,16 @@ const MainLayout = () => {
     return path === '' ? 'dashboard' : path;
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const userMenu = [
-    {
-      key: 'logout',
-      label: 'Đăng xuất',
-      icon: <LogoutOutlined />,
-      onClick: handleLogout
-    }
-  ];
-
-  if (!user) return null; // Or some loading state, handled by ProtectedRoute though
-
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider 
-        width={250} 
         breakpoint="lg"
         collapsedWidth="0"
+        width={250} 
         style={{ 
-          background: '#1a2235',
-          zIndex: 10
+          background: '#1a2235', 
+          display: 'flex', 
+          flexDirection: 'column' 
         }}
       >
         <div style={{ padding: '20px', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -113,7 +85,7 @@ const MainLayout = () => {
         </div>
 
         <div style={{ padding: '0 20px', color: '#8a94a6', fontSize: '12px', marginTop: '10px', marginBottom: '10px', fontWeight: '500' }}>
-          CHỨC NĂNG ({user.roleName.toUpperCase()})
+          ĐIỀU HÀNH
         </div>
 
         <Menu
@@ -121,7 +93,7 @@ const MainLayout = () => {
           mode="inline"
           selectedKeys={[getSelectedKey()]}
           onClick={handleMenuClick}
-          items={menuItems.map(item => ({ key: item.key, icon: item.icon, label: item.label }))}
+          items={menuItems}
           style={{ background: '#1a2235', flex: 1, borderRight: 0 }}
         />
 
@@ -137,30 +109,26 @@ const MainLayout = () => {
       </Sider>
       
       <Layout>
-        <Header style={{ padding: '0 16px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', height: '70px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: '1.2', flex: 1, overflow: 'hidden' }}>
-             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{menuItems.find(item => item.key === getSelectedKey())?.label || 'Tổng quan'}</h2>
-             <span style={{ color: '#8c8c8c', fontSize: '12px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Hệ thống quản lý bảo trì & sửa chữa</span>
+        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', height: '70px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: '1.2' }}>
+             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>{menuItems.find(item => item.key === getSelectedKey())?.label}</h2>
+             <span style={{ color: '#8c8c8c', fontSize: '13px' }}>Hệ thống quản lý bảo trì & sửa chữa</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', lineHeight: 'normal' }}>
-            <div className="desktop-search" style={{ display: 'none' }}>
-              {/* Note: In a real app we'd use media queries in CSS. Doing inline styles for quick fix here is limited. */}
-              {/* So we will let the Input shrink by using max-width */}
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', lineHeight: 'normal' }}>
             <Input 
-              placeholder="Tìm mã..." 
+              placeholder="Tìm mã phiếu hoặc số điện thoại..." 
               prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-              style={{ maxWidth: 200, borderRadius: '20px', padding: '8px 16px', background: '#f5f5f5', border: 'none' }}
+              style={{ width: 320, borderRadius: '20px', padding: '8px 16px', background: '#f5f5f5', border: 'none' }}
             />
             <Badge dot color="red">
               <BellOutlined style={{ fontSize: '20px', color: '#595959', cursor: 'pointer', display: 'block' }} />
             </Badge>
-            <Dropdown menu={{ items: userMenu }} trigger={['click']}>
+            <Dropdown menu={{ items: [{ key: 'logout', label: 'Đăng xuất' }] }} trigger={['click']}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                <Avatar style={{ backgroundColor: user.role === 'admin' ? '#f5222d' : (user.role === 'technician' ? '#1677ff' : (user.role === 'warehouse' ? '#52c41a' : '#722ed1')) }} icon={<UserOutlined />} />
+                <Avatar style={{ backgroundColor: '#1677ff' }}>TML</Avatar>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontWeight: '600', fontSize: '14px', lineHeight: '1.2' }}>{user.name}</span>
-                  <span style={{ fontSize: '12px', color: '#8c8c8c', lineHeight: '1.2' }}>{user.roleName}</span>
+                  <span style={{ fontWeight: '600', fontSize: '14px', lineHeight: '1.2' }}>Mỹ Linh</span>
+                  <span style={{ fontSize: '12px', color: '#8c8c8c', lineHeight: '1.2' }}>Quản lý</span>
                 </div>
               </div>
             </Dropdown>
@@ -175,4 +143,3 @@ const MainLayout = () => {
 };
 
 export default MainLayout;
-

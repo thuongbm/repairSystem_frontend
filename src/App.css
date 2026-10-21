@@ -1,1 +1,38 @@
-/* Removed default React styles */
+/* Responsive and workbench styles */
+
+@media (max-width: 768px) {
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .ant-layout-content {
+    margin: 12px 8px !important;
+  }
+
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  .ant-tabs-nav {
+    margin-bottom: 12px !important;
+  }
+}
+
+/* Touch-friendly touch targets */
+.touch-btn {
+  min-height: 38px;
+  touch-action: manipulation;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
