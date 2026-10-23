@@ -1,12 +1,17 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // Try to load user from localStorage
+  // Load user from localStorage safely
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('techfix_user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    try {
+      const savedUser = localStorage.getItem('techfix_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      console.error('Failed to parse techfix_user from localStorage', e);
+      return null;
+    }
   });
 
   const login = (userData) => {
