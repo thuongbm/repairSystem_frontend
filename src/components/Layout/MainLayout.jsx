@@ -28,7 +28,13 @@ const MainLayout = () => {
       key: 'dashboard',
       icon: <DashboardOutlined />,
       label: user?.role === 'customer' ? 'Dịch vụ của tôi' : 'Tổng quan',
-      roles: ['admin', 'technician', 'warehouse', 'customer'],
+      roles: ['admin', 'technician', 'warehouse', 'receptionist', 'customer'],
+    },
+    {
+      key: 'reception',
+      icon: <LaptopOutlined />,
+      label: 'Lễ tân & Thu ngân',
+      roles: ['admin', 'technician', 'receptionist'],
     },
     {
       key: 'technician',
@@ -40,13 +46,7 @@ const MainLayout = () => {
       key: 'appointments',
       icon: <CalendarOutlined />,
       label: 'Điều phối lịch hẹn',
-      roles: ['admin', 'technician'],
-    },
-    {
-      key: 'reception',
-      icon: <LaptopOutlined />,
-      label: 'Tiếp nhận máy',
-      roles: ['admin', 'technician'],
+      roles: ['admin', 'technician', 'receptionist'],
     },
     {
       key: 'warehouse',
@@ -58,7 +58,7 @@ const MainLayout = () => {
       key: 'pricing',
       icon: <DollarOutlined />,
       label: 'Bảng giá dịch vụ',
-      roles: ['admin'],
+      roles: ['admin', 'receptionist'],
     },
     {
       key: 'hr',
@@ -90,6 +90,8 @@ const MainLayout = () => {
     switch (role) {
       case 'admin':
         return '#f5222d';
+      case 'receptionist':
+        return '#fa8c16';
       case 'technician':
         return '#1677ff';
       case 'warehouse':

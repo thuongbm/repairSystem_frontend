@@ -24,11 +24,15 @@ function App() {
               {/* Home determines whether to show Dashboard or CustomerPortal */}
               <Route index element={<Home />} />
               
+              {/* Admin, Technician and Receptionist */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'technician', 'receptionist']} />}>
+                <Route path="reception" element={<Reception />} />
+                <Route path="appointments" element={<Appointments />} />
+              </Route>
+
               {/* Admin and Technician */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'technician']} />}>
                 <Route path="technician" element={<Technician />} />
-                <Route path="appointments" element={<Appointments />} />
-                <Route path="reception" element={<Reception />} />
               </Route>
 
               {/* Admin and Warehouse */}
@@ -36,9 +40,13 @@ function App() {
                 <Route path="warehouse" element={<Warehouse />} />
               </Route>
 
+              {/* Admin and Receptionist */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'receptionist']} />}>
+                <Route path="pricing" element={<Pricing />} />
+              </Route>
+
               {/* Admin only */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                <Route path="pricing" element={<Pricing />} />
                 <Route path="hr" element={<HR />} />
               </Route>
             </Route>

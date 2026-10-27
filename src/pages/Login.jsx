@@ -1,11 +1,10 @@
 import React from 'react';
-import { Card, Button, Typography, Space, Row, Col, Layout } from 'antd';
-import { UserOutlined, SettingOutlined, ShopOutlined, TeamOutlined, ToolOutlined } from '@ant-design/icons';
+import { Card, Typography, Row, Col, Layout } from 'antd';
+import { UserOutlined, SettingOutlined, ShopOutlined, TeamOutlined, ToolOutlined, CustomerServiceOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const { Title, Text } = Typography;
-const { Content } = Layout;
 
 const roles = [
   {
@@ -17,6 +16,14 @@ const roles = [
     user: { name: 'Mỹ Linh', role: 'admin', roleName: 'Quản trị viên' }
   },
   {
+    id: 'receptionist',
+    name: 'Lễ tân / Thu ngân',
+    icon: <CustomerServiceOutlined style={{ fontSize: '32px', color: '#fa8c16' }} />,
+    color: '#fffbe6',
+    borderColor: '#ffe58f',
+    user: { name: 'Thanh Thảo', role: 'receptionist', roleName: 'Lễ tân / Thu ngân' }
+  },
+  {
     id: 'technician',
     name: 'Kỹ thuật viên',
     icon: <ToolOutlined style={{ fontSize: '32px', color: '#1677ff' }} />,
@@ -24,7 +31,6 @@ const roles = [
     borderColor: '#91caff',
     user: { name: 'Tuấn Anh', role: 'technician', roleName: 'Kỹ thuật viên' }
   },
-
   {
     id: 'warehouse',
     name: 'Thủ kho',
@@ -57,7 +63,7 @@ const Login = () => {
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <Card style={{ width: 600, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+      <Card style={{ width: 680, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ width: '48px', height: '48px', background: '#1677ff', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
             <span style={{ fontSize: '24px', fontWeight: 'bold', color: 'white' }}>🔧</span>
@@ -66,9 +72,9 @@ const Login = () => {
           <Text type="secondary">Vui lòng chọn vai trò để đăng nhập vào hệ thống</Text>
         </div>
 
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} justify="center">
           {roles.map((role) => (
-            <Col span={12} key={role.id}>
+            <Col xs={24} sm={12} md={8} key={role.id}>
               <Card 
                 hoverable
                 onClick={() => handleLogin(role.user)}
@@ -76,14 +82,15 @@ const Login = () => {
                   background: role.color, 
                   borderColor: role.borderColor,
                   textAlign: 'center',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  height: '100%'
                 }}
-                bodyStyle={{ padding: '24px 16px' }}
+                bodyStyle={{ padding: '20px 12px' }}
               >
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 12 }}>
                   {role.icon}
                 </div>
-                <Title level={5} style={{ margin: 0 }}>{role.name}</Title>
+                <Title level={5} style={{ margin: 0, fontSize: '14px' }}>{role.name}</Title>
               </Card>
             </Col>
           ))}
