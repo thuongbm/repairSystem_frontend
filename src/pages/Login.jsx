@@ -17,7 +17,7 @@ const mapBackendRole = (vaiTro) => {
     case 'THU_KHO':
       return { role: 'warehouse', roleName: 'Thủ kho' };
     case 'LE_TAN':
-      return { role: 'technician', roleName: 'Lễ tân' };
+      return { role: 'receptionist', roleName: 'Lễ tân' };
     case 'KHACH_HANG':
     default:
       return { role: 'customer', roleName: 'Khách hàng' };
