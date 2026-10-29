@@ -14,14 +14,18 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  const login = (userData) => {
+  const login = (userData, token) => {
     setUser(userData);
     localStorage.setItem('techfix_user', JSON.stringify(userData));
+    if (token) {
+      localStorage.setItem('token', token);
+    }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('techfix_user');
+    localStorage.removeItem('token');
   };
 
   return (
