@@ -49,9 +49,35 @@ export const api = {
     return res.data;
   },
 
-  // Danh mục Phase 0
+  // Danh mục Phase 0 & Quản trị nhân sự
   getNhanVien: async (params) => {
     const res = await client.get('/nhan-vien', { params });
+    return res.data;
+  },
+  getNhanVienById: async (id) => {
+    const res = await client.get(`/nhan-vien/${id}`);
+    return res.data;
+  },
+  taoNhanVien: async (payload) => {
+    const res = await client.post('/nhan-vien', payload);
+    return res.data;
+  },
+  capNhatNhanVien: async (id, payload) => {
+    const res = await client.put(`/nhan-vien/${id}`, payload);
+    return res.data;
+  },
+  xoaNhanVien: async (id) => {
+    const res = await client.delete(`/nhan-vien/${id}`);
+    return res.data;
+  },
+
+  // Quản trị tài khoản người dùng
+  getUsers: async () => {
+    const res = await client.get('/users');
+    return res.data;
+  },
+  capNhatTrangThaiTaiKhoan: async (taiKhoanId, isActive) => {
+    const res = await client.put(`/users/${taiKhoanId}/status`, { isActive });
     return res.data;
   },
   getDichVu: async () => {
