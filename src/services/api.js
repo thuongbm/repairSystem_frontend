@@ -58,12 +58,52 @@ export const api = {
     const res = await client.get('/dich-vu');
     return res.data;
   },
-  getNhaCungCap: async () => {
-    const res = await client.get('/nha-cung-cap');
+  getNhaCungCap: async (params) => {
+    const res = await client.get('/nha-cung-cap', { params });
     return res.data;
   },
   getLinhKien: async (params) => {
     const res = await client.get('/linh-kien', { params });
+    return res.data;
+  },
+
+  // Kho & Tồn kho (Giai đoạn 1)
+  getKho: async () => {
+    const res = await client.get('/kho');
+    return res.data;
+  },
+  getTonKho: async (params) => {
+    const res = await client.get('/kho/ton-kho', { params });
+    return res.data;
+  },
+  getCanhBaoTonKho: async (khoId) => {
+    const res = await client.get('/kho/canh-bao-het-hang', { params: khoId ? { khoId } : {} });
+    return res.data;
+  },
+  capNhatMucTonToiThieu: async (khoId, linhKienId, mucTonToiThieu) => {
+    const res = await client.put(`/kho/ton-kho/${khoId}/${linhKienId}/muc-ton-toi-thieu`, { mucTonToiThieu });
+    return res.data;
+  },
+
+  // Phiếu nhập kho (Giai đoạn 1)
+  taoPhieuNhap: async (payload) => {
+    const res = await client.post('/phieu-nhap/tao-moi', payload);
+    return res.data;
+  },
+  getPhieuNhap: async (params) => {
+    const res = await client.get('/phieu-nhap', { params });
+    return res.data;
+  },
+  getPhieuNhapById: async (id) => {
+    const res = await client.get(`/phieu-nhap/${id}`);
+    return res.data;
+  },
+  xacNhanPhieuNhap: async (id) => {
+    const res = await client.post(`/phieu-nhap/${id}/xac-nhan`);
+    return res.data;
+  },
+  huyPhieuNhap: async (id) => {
+    const res = await client.post(`/phieu-nhap/${id}/huy`);
     return res.data;
   },
 };
