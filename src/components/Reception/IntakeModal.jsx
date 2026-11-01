@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   Modal,
   Form,
@@ -24,6 +24,7 @@ import {
   CheckCircleOutlined
 } from '@ant-design/icons';
 import { TECHNICIANS_LIST } from './mockReceptionData';
+import { api } from '../../services/api';
 
 const COMMON_ISSUES = [
   'Mất nguồn / Không bật lên',
@@ -47,6 +48,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
   const [form] = Form.useForm();
   const [selectedIssueTags, setSelectedIssueTags] = useState([]);
   const [previewTicket, setPreviewTicket] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleToggleIssue = (issue) => {
     if (selectedIssueTags.includes(issue)) {
@@ -57,8 +59,8 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
   };
 
   const handleFinish = async (values) => {
+    setSubmitting(true);
     try {
-      const generatedCode = `PN-${Math.floor(5520 + Math.random() * 80)}`;
       const combinedIssues = [
         ...selectedIssueTags,
         values.issueNotes ? values.issueNotes.trim() : '',
@@ -66,8 +68,36 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         .filter(Boolean)
         .join('; ');
 
+      // Chuẩn bị payload kết nối API thực POST /api/phieu-sua-chua (Giai đoạn 3 - Mục 3.3)
+      const payload = {
+        thietBiId: values.thietBiId || null,
+        customerName: values.customerName?.trim(),
+        phone: values.phone?.trim(),
+        email: values.email?.trim() || null,
+        deviceType: values.deviceType,
+        deviceName: values.deviceName?.trim(),
+        soSerial: values.serial?.trim() || null,
+        tinhTrangLoi: combinedIssues || 'Khách yêu cầu kiểm tra tổng quát',
+        tinhTrangNgoaiQuan: values.condition?.trim() || null,
+        phuKienKemTheo: values.accessories?.length > 0 ? values.accessories.join(', ') : null,
+        matKhauMay: values.passcode?.trim() || null,
+        ngayHenTra: values.appointmentDate || null,
+        ghiChu: values.issueNotes?.trim() || null,
+      };
+
+      let bePhieu = null;
+      try {
+        const res = await api.taoPhieuSuaChua(payload);
+        bePhieu = res?.data || res;
+      } catch (apiErr) {
+        console.warn('API /phieu-sua-chua chưa khả dụng hoặc báo lỗi, lưu offline quầy:', apiErr);
+      }
+
+      const generatedCode = bePhieu?.maPhieu || `PN-${Math.floor(5520 + Math.random() * 80)}`;
+
       const newTicket = {
-        key: `${Date.now()}`,
+        id: bePhieu?.id || Date.now(),
+        key: `${bePhieu?.id || Date.now()}`,
         code: generatedCode,
         customer: values.customerName,
         phone: values.phone,
@@ -100,6 +130,9 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
       message.success(`Đã tiếp nhận thành công phiếu sửa chữa ${newTicket.code}!`);
     } catch (err) {
       console.error(err);
+      message.error('Không thể tạo phiếu tiếp nhận. Vui lòng thử lại!');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -142,6 +175,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               <Button
                 key="print"
                 type="primary"
+                loading={submitting}
                 icon={<PrinterOutlined />}
                 style={{ background: '#52c41a', borderColor: '#52c41a' }}
                 onClick={handlePrintReceipt}
@@ -156,6 +190,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               <Button
                 key="submit"
                 type="primary"
+                loading={submitting}
                 icon={<CheckCircleOutlined />}
                 onClick={() => form.submit()}
               >
