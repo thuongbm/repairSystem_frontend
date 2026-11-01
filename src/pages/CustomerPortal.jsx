@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Typography, Tabs, Select, Form, Button, Input, DatePicker, Row, Col, Divider, Steps, Alert, Space, Result, message, Tag } from 'antd';
+import { Card, Typography, Tabs, Select, Form, Button, Input, DatePicker, Row, Col, Divider, Steps, Alert, Space, Result, message, Tag, Timeline } from 'antd';
 import { 
   CalculatorOutlined, 
   CalendarOutlined, 
@@ -8,9 +8,12 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   LaptopOutlined,
-  MobileOutlined
+  MobileOutlined,
+  SafetyCertificateOutlined,
+  BarcodeOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { api } from '../services/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -86,6 +89,12 @@ const CustomerPortal = () => {
   const [ticketResult, setTicketResult] = useState(null);
   const [searchError, setSearchError] = useState('');
 
+  // --- Serial Warranty State (Giai đoạn 3 - Nâng cấp minh bạch) ---
+  const [serialQuery, setSerialQuery] = useState('');
+  const [warrantyResult, setWarrantyResult] = useState(null);
+  const [searchingWarranty, setSearchingWarranty] = useState(false);
+  const [warrantyError, setWarrantyError] = useState('');
+
   const handleDeviceChange = (val) => {
     setDeviceType(val);
     setSelectedServices([]);
@@ -145,6 +154,34 @@ const CustomerPortal = () => {
     } else {
       setTicketResult(null);
       setSearchError('Không tìm thấy thông tin. Vui lòng kiểm tra lại số điện thoại hoặc mã phiếu.');
+    }
+  };
+
+  const handleSearchWarranty = async (inputSerial) => {
+    const s = (inputSerial || serialQuery).trim().toUpperCase();
+    if (!s) {
+      setWarrantyError('Vui lòng nhập số Serial của linh kiện!');
+      setWarrantyResult(null);
+      return;
+    }
+
+    setSearchingWarranty(true);
+    setWarrantyError('');
+    setWarrantyResult(null);
+
+    try {
+      const res = await api.traCuuBaoHanhSerial(s);
+      const data = res?.data || res;
+      if (data) {
+        setWarrantyResult(data);
+      } else {
+        setWarrantyError(`Không tìm thấy số Serial "${s}" trong hệ thống TechFix. Linh kiện có thể không phải hàng chính hãng do cửa hàng bán ra.`);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || `Không tìm thấy số Serial "${s}". Linh kiện có thể không phải hàng do cửa hàng bán ra hoặc đã thanh lý.`;
+      setWarrantyError(msg);
+    } finally {
+      setSearchingWarranty(false);
     }
   };
 
@@ -412,6 +449,148 @@ const CustomerPortal = () => {
                       <strong style={{ fontSize: '18px', color: '#f5222d' }}>{ticketResult.totalCost.toLocaleString()}đ</strong>
                     </div>
                   </div>
+                </Card>
+              )}
+            </div>
+          </TabPane>
+          {/* TAB 4: TRA CỨU BẢO HÀNH LINH KIỆN (SERIAL) */}
+          <TabPane 
+            tab={<span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><SafetyCertificateOutlined /> Tra cứu bảo hành linh kiện</span>} 
+            key="4"
+          >
+            <div style={{ padding: '20px 0', maxWidth: '750px', margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                <Title level={4}>Tra cứu bảo hành & nguồn gốc linh kiện</Title>
+                <Paragraph type="secondary">
+                  Nhập số Serial được in trên tem linh kiện hoặc ghi trên biên nhận bàn giao để kiểm tra tính chính hãng, nguồn gốc nhập kho và thời hạn bảo hành.
+                </Paragraph>
+                
+                <Space.Compact style={{ width: '100%', marginTop: '16px' }}>
+                  <Input 
+                    size="large" 
+                    placeholder="Nhập số Serial linh kiện (VD: KVR-8G-2610-09881 hoặc quét mã)..." 
+                    prefix={<BarcodeOutlined style={{ color: '#1677ff' }} />}
+                    value={serialQuery}
+                    onChange={(e) => setSerialQuery(e.target.value)}
+                    onPressEnter={() => handleSearchWarranty(serialQuery)}
+                    style={{ fontFamily: 'monospace' }}
+                  />
+                  <Button 
+                    type="primary" 
+                    size="large" 
+                    loading={searchingWarranty}
+                    onClick={() => handleSearchWarranty(serialQuery)}
+                  >
+                    Tra cứu
+                  </Button>
+                </Space.Compact>
+
+                {warrantyError && (
+                  <Alert 
+                    type="error" 
+                    showIcon 
+                    message={warrantyError} 
+                    style={{ marginTop: '12px', textAlign: 'left' }} 
+                  />
+                )}
+              </div>
+
+              {warrantyResult && (
+                <Card 
+                  title={
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <Space>
+                        <SafetyCertificateOutlined style={{ color: warrantyResult.conBaoHanh ? '#52c41a' : '#faad14', fontSize: 20 }} />
+                        <span>Mã Serial: <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{warrantyResult.soSerial}</span></span>
+                      </Space>
+                      <Tag color={warrantyResult.conBaoHanh ? 'success' : warrantyResult.trangThai === 'TRONG_KHO' ? 'processing' : 'warning'}>
+                        {warrantyResult.conBaoHanh ? 'CÒN BẢO HÀNH' : warrantyResult.trangThai === 'TRONG_KHO' ? 'TRONG KHO' : 'HẾT BẢO HÀNH'}
+                      </Tag>
+                    </div>
+                  }
+                  style={{ borderRadius: '8px', border: '1px solid #d9d9d9' }}
+                >
+                  <Alert 
+                    type={warrantyResult.conBaoHanh ? 'success' : warrantyResult.trangThai === 'TRONG_KHO' ? 'info' : 'warning'}
+                    showIcon
+                    message={warrantyResult.thongBao}
+                    style={{ marginBottom: 20 }}
+                  />
+
+                  <div style={{ background: '#fafafa', padding: '16px', borderRadius: '8px', marginBottom: 24, border: '1px solid #f0f0f0' }}>
+                    <Row gutter={[16, 12]}>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Tên linh kiện:</Text>
+                        <div style={{ fontWeight: 600, fontSize: '15px', color: '#1677ff' }}>{warrantyResult.tenLinhKien}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Hãng sản xuất:</Text>
+                        <div style={{ fontWeight: 500 }}>{warrantyResult.hangSanXuat || 'Đang cập nhật'}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Nhà cung cấp:</Text>
+                        <div style={{ fontWeight: 500 }}>{warrantyResult.tenNcc}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Hạn bảo hành đến:</Text>
+                        <div style={{ fontWeight: 600, color: warrantyResult.conBaoHanh ? '#52c41a' : '#ff4d4f' }}>
+                          {warrantyResult.baoHanhDen ? dayjs(warrantyResult.baoHanhDen).format('DD/MM/YYYY') : 'Không có thông tin bảo hành'}
+                        </div>
+                      </Col>
+                    </Row>
+                  </div>
+
+                  <Title level={5} style={{ marginBottom: 16 }}>Vòng đời linh kiện & Minh bạch xuất xứ</Title>
+                  <Timeline
+                    items={[
+                      {
+                        color: 'green',
+                        children: (
+                          <div>
+                            <div style={{ fontWeight: 600 }}>Nhập kho chính hãng từ Nhà cung cấp</div>
+                            <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                              Ngày: {dayjs(warrantyResult.ngayNhapKho).format('DD/MM/YYYY')} • Đơn vị cung ứng: <b>{warrantyResult.tenNcc}</b>
+                            </div>
+                          </div>
+                        ),
+                      },
+                      {
+                        color: warrantyResult.ngayXuat ? 'blue' : 'gray',
+                        children: warrantyResult.ngayXuat ? (
+                          <div>
+                            <div style={{ fontWeight: 600 }}>Xuất kho lắp ráp cho thiết bị khách hàng</div>
+                            <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                              Ngày xuất: {dayjs(warrantyResult.ngayXuat).format('DD/MM/YYYY')}
+                              {warrantyResult.tenThietBi && ` • Thiết bị: ${warrantyResult.tenThietBi}`}
+                              {warrantyResult.maPhieuSuaChua && ` (Phiếu: ${warrantyResult.maPhieuSuaChua})`}
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ color: '#8c8c8c' }}>
+                            <div>Đang lưu trong kho TechFix</div>
+                            <div style={{ fontSize: '12px' }}>Linh kiện mới 100%, sẵn sàng cho sửa chữa/thay thế</div>
+                          </div>
+                        ),
+                      },
+                      {
+                        color: warrantyResult.conBaoHanh ? 'green' : warrantyResult.baoHanhDen ? 'red' : 'gray',
+                        children: (
+                          <div>
+                            <div style={{ fontWeight: 600 }}>
+                              {warrantyResult.conBaoHanh 
+                                ? `Thời hạn bảo hành có hiệu lực đến ${dayjs(warrantyResult.baoHanhDen).format('DD/MM/YYYY')}` 
+                                : warrantyResult.baoHanhDen 
+                                  ? `Đã hết hạn bảo hành (${dayjs(warrantyResult.baoHanhDen).format('DD/MM/YYYY')})` 
+                                  : 'Chính sách bảo hành theo từng đơn hàng'}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                              Cam kết hỗ trợ kỹ thuật và kiểm tra miễn phí trong suốt thời gian bảo hành.
+                            </div>
+                          </div>
+                        ),
+                      },
+                    ]}
+                  />
                 </Card>
               )}
             </div>

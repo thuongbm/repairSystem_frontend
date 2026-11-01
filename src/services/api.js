@@ -132,6 +132,34 @@ export const api = {
     const res = await client.post(`/phieu-nhap/${id}/huy`);
     return res.data;
   },
+
+  // Linh kiện serial (Giai đoạn 1 nâng cao - Quản lý số Serial)
+  getLinhKienSerials: async (params) => {
+    const res = await client.get('/linh-kien-serial', { params });
+    return res.data;
+  },
+  traCuuSerial: async (soSerial) => {
+    const res = await client.get(`/linh-kien-serial/${encodeURIComponent(soSerial)}/tracuu`);
+    return res.data;
+  },
+  traCuuBaoHanhSerial: async (soSerial) => {
+    const res = await client.get(`/linh-kien-serial/bao-hanh/${encodeURIComponent(soSerial)}`);
+    return res.data;
+  },
+  xuatLinhKienSerial: async (id, payload) => {
+    const res = await client.post(`/linh-kien-serial/${id}/xuat`, payload);
+    return res.data;
+  },
+
+  // Phiếu sửa chữa (Tiếp nhận thiết bị - Giai đoạn 3)
+  taoPhieuSuaChua: async (payload) => {
+    const res = await client.post('/phieu-sua-chua', payload);
+    return res.data;
+  },
+  getPhieuSuaChua: async (params) => {
+    const res = await client.get('/phieu-sua-chua', { params });
+    return res.data;
+  },
 };
 
 export default client;

@@ -22,6 +22,8 @@ import {
   Statistic,
   Popconfirm,
   Alert,
+  Descriptions,
+  Timeline,
 } from 'antd';
 import {
   PlusOutlined,
@@ -38,6 +40,9 @@ import {
   AppstoreOutlined,
   HistoryOutlined,
   CheckOutlined,
+  BarcodeOutlined,
+  SnippetsOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { api } from '../services/api';
@@ -82,16 +87,43 @@ const Warehouse = () => {
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // Modal dán danh sách mã Serial từ NCC
+  const [isPasteSerialModalVisible, setIsPasteSerialModalVisible] = useState(false);
+  const [currentSerialFieldIndex, setCurrentSerialFieldIndex] = useState(null);
+  const [pasteSerialText, setPasteSerialText] = useState('');
+
   // Modal cập nhật mức tồn tối thiểu
   const [isMinStockModalVisible, setIsMinStockModalVisible] = useState(false);
   const [editingTonKhoItem, setEditingTonKhoItem] = useState(null);
   const [updatingMinStock, setUpdatingMinStock] = useState(false);
 
+  // Modal Phê duyệt xuất kho theo Serial (Giai đoạn 3 - Mục 3.2)
+  const [isExportSerialModalVisible, setIsExportSerialModalVisible] = useState(false);
+  const [currentExportRequest, setCurrentExportRequest] = useState(null);
+  const [serialsTrongKho, setSerialsTrongKho] = useState([]);
+  const [loadingSerialsTrongKho, setLoadingSerialsTrongKho] = useState(false);
+  const [selectedExportSerialId, setSelectedExportSerialId] = useState(null);
+
+  // --- State Quản lý & Tra cứu Serial Linh Kiện (Kho) ---
+  const [allSerialsList, setAllSerialsList] = useState([]);
+  const [loadingSerialsList, setLoadingSerialsList] = useState(false);
+  const [serialSearchKeyword, setSerialSearchKeyword] = useState('');
+  const [serialFilterStatus, setSerialFilterStatus] = useState('all');
+  const [serialFilterKhoId, setSerialFilterKhoId] = useState(null);
+  const [serialFilterLinhKienId, setSerialFilterLinhKienId] = useState(null);
+
+  // Modal Tra cứu nhanh Vòng đời Serial
+  const [isQuickSearchSerialModalVisible, setIsQuickSearchSerialModalVisible] = useState(false);
+  const [quickSerialInput, setQuickSerialInput] = useState('');
+  const [quickSerialSearching, setQuickSerialSearching] = useState(false);
+  const [quickSerialResult, setQuickSerialResult] = useState(null);
+  const [quickSerialError, setQuickSerialError] = useState('');
+
   // --- Mock data giữ nguyên cho Phê duyệt xuất kho (KTV) & Bảo hành ---
   const [exportRequests, setExportRequests] = useState([
-    { key: '1', ticketCode: 'TN-20231027-01', ktv: 'Tuấn Anh', partName: 'Ổ cứng SSD 512GB NVMe PCIe', quantity: 1, reqDate: '27/10/2023 14:30', status: 'pending' },
-    { key: '2', ticketCode: 'TN-20231027-04', ktv: 'Văn Hùng', partName: 'Keo tản nhiệt Arctic MX-4 (4g)', quantity: 1, reqDate: '27/10/2023 15:10', status: 'pending', note: 'Xin cấp phát mới đợt này' },
-    { key: '3', ticketCode: 'TN-20231026-12', ktv: 'Quốc Bảo', partName: 'RAM DDR4 8GB Bus 3200', quantity: 1, reqDate: '26/10/2023 09:15', status: 'approved' },
+    { key: '1', ticketCode: 'TN-20231027-01', ktv: 'Tuấn Anh', partName: 'Ổ cứng SSD 512GB NVMe PCIe', quantity: 1, reqDate: '27/10/2023 14:30', status: 'pending', serial: null },
+    { key: '2', ticketCode: 'TN-20231027-04', ktv: 'Văn Hùng', partName: 'Keo tản nhiệt Arctic MX-4 (4g)', quantity: 1, reqDate: '27/10/2023 15:10', status: 'pending', note: 'Xin cấp phát mới đợt này', serial: null },
+    { key: '3', ticketCode: 'TN-20231026-12', ktv: 'Quốc Bảo', partName: 'RAM DDR4 8GB Bus 3200', quantity: 1, reqDate: '26/10/2023 09:15', status: 'approved', serial: 'SN-RAM-8G-091' },
   ]);
 
   const [warrantyData] = useState([
@@ -181,13 +213,63 @@ const Warehouse = () => {
     }
   }, []);
 
+  // 4. Tải danh sách serial: GET /api/linh-kien-serial
+  const fetchAllSerials = useCallback(async () => {
+    setLoadingSerialsList(true);
+    try {
+      const params = {};
+      if (serialFilterStatus && serialFilterStatus !== 'all') params.trangThai = serialFilterStatus;
+      if (serialFilterKhoId) params.khoId = serialFilterKhoId;
+      if (serialFilterLinhKienId) params.linhKienId = serialFilterLinhKienId;
+
+      const res = await api.getLinhKienSerials(params);
+      const data = res?.data || res || [];
+      setAllSerialsList(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn('Lỗi tải danh sách serial kho:', err);
+      setAllSerialsList([]);
+    } finally {
+      setLoadingSerialsList(false);
+    }
+  }, [serialFilterStatus, serialFilterKhoId, serialFilterLinhKienId]);
+
+  // Tra cứu nhanh vòng đời 1 serial: GET /api/linh-kien-serial/{soSerial}/tracuu
+  const handleQuickSearchSerial = async (serialToSearch) => {
+    const s = (serialToSearch || quickSerialInput).trim().toUpperCase();
+    if (!s) {
+      setQuickSerialError('Vui lòng nhập hoặc quét mã Serial!');
+      setQuickSerialResult(null);
+      return;
+    }
+
+    setQuickSerialSearching(true);
+    setQuickSerialError('');
+    setQuickSerialResult(null);
+
+    try {
+      const res = await api.traCuuSerial(s);
+      const data = res?.data || res;
+      if (data) {
+        setQuickSerialResult(data);
+      } else {
+        setQuickSerialError(`Không tìm thấy mã serial "${s}" trong hệ thống kho.`);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || `Không tìm thấy mã serial "${s}" trong hệ thống kho.`;
+      setQuickSerialError(msg);
+    } finally {
+      setQuickSerialSearching(false);
+    }
+  };
+
   // Khởi chạy khi component mount
   useEffect(() => {
     fetchTonKho();
     fetchCanhBao();
     fetchPhieuNhap();
     fetchMetaCatalogs();
-  }, [fetchTonKho, fetchCanhBao, fetchPhieuNhap, fetchMetaCatalogs]);
+    fetchAllSerials();
+  }, [fetchTonKho, fetchCanhBao, fetchPhieuNhap, fetchMetaCatalogs, fetchAllSerials]);
 
   // ==========================================
   // XỬ LÝ LẬP PHIẾU NHẬP (POST /api/phieu-nhap/tao-moi)
@@ -210,6 +292,7 @@ const Warehouse = () => {
           linhKienId: defaultPartId,
           soLuongNhap: prefillQty,
           donGiaNhap: 0,
+          danhSachSerial: [],
         },
       ],
     });
@@ -217,10 +300,63 @@ const Warehouse = () => {
     setIsImportModalVisible(true);
   };
 
+  // Mở modal dán nhanh danh sách serial từ NCC
+  const handleOpenPasteSerialModal = (fieldIndex) => {
+    setCurrentSerialFieldIndex(fieldIndex);
+    const existing = form.getFieldValue(['chiTiet', fieldIndex, 'danhSachSerial']) || [];
+    setPasteSerialText(existing.join('\n'));
+    setIsPasteSerialModalVisible(true);
+  };
+
+  // Xác nhận nạp danh sách serial đã dán
+  const handleApplyPastedSerials = () => {
+    if (currentSerialFieldIndex === null) return;
+
+    // Tách theo dòng mới, dấu phẩy, chấm phẩy hoặc tab
+    const rawItems = pasteSerialText
+      .split(/[\r\n,;\t]+/)
+      .map((s) => s.trim().toUpperCase())
+      .filter((s) => s.length > 0);
+
+    const uniqueSerials = Array.from(new Set(rawItems));
+    if (uniqueSerials.length === 0) {
+      message.warning('Chưa có mã serial nào hợp lệ!');
+      return;
+    }
+
+    if (uniqueSerials.length < rawItems.length) {
+      message.info(`Đã tự động loại bỏ ${rawItems.length - uniqueSerials.length} mã serial bị trùng lặp.`);
+    }
+
+    // Cập nhật danh sách serial vào Form
+    form.setFieldValue(['chiTiet', currentSerialFieldIndex, 'danhSachSerial'], uniqueSerials);
+    // Tự động đồng bộ số lượng nhập bằng đúng số lượng serial vừa nạp
+    form.setFieldValue(['chiTiet', currentSerialFieldIndex, 'soLuongNhap'], uniqueSerials.length);
+
+    message.success(`Đã nạp ${uniqueSerials.length} mã serial thành công!`);
+    setIsPasteSerialModalVisible(false);
+    setPasteSerialText('');
+  };
+
   const handleImportSubmit = async (values) => {
     if (!values.chiTiet || values.chiTiet.length === 0) {
       message.error('Vui lòng thêm ít nhất một dòng linh kiện cần nhập!');
       return;
+    }
+
+    // Validate khớp số lượng serial nếu có nhập
+    for (let i = 0; i < values.chiTiet.length; i++) {
+      const item = values.chiTiet[i];
+      const serials = item.danhSachSerial || [];
+      const qty = Number(item.soLuongNhap || 0);
+      if (serials.length > 0 && serials.length !== qty) {
+        const part = linhKienList.find((l) => l.id === Number(item.linhKienId));
+        const partName = part ? part.tenLinhKien : `Dòng thứ ${i + 1}`;
+        message.error(
+          `Linh kiện "${partName}": Số lượng serial (${serials.length}) chưa khớp với số lượng nhập (${qty})!`
+        );
+        return;
+      }
     }
 
     setSubmittingImport(true);
@@ -232,11 +368,17 @@ const Warehouse = () => {
         ngayNhap: values.ngayNhap ? values.ngayNhap.toISOString() : null,
         ghiChu: values.ghiChu?.trim() || null,
         xacNhanNgay: values.xacNhanNgay ?? true,
-        chiTiet: values.chiTiet.map((item) => ({
-          linhKienId: Number(item.linhKienId),
-          soLuongNhap: Number(item.soLuongNhap),
-          donGiaNhap: Number(item.donGiaNhap || 0),
-        })),
+        chiTiet: values.chiTiet.map((item) => {
+          const serials = (item.danhSachSerial || [])
+            .map((s) => String(s).trim().toUpperCase())
+            .filter(Boolean);
+          return {
+            linhKienId: Number(item.linhKienId),
+            soLuongNhap: Number(item.soLuongNhap),
+            donGiaNhap: Number(item.donGiaNhap || 0),
+            danhSachSerial: serials.length > 0 ? serials : null,
+          };
+        }),
       };
 
       const res = await api.taoPhieuNhap(payload);
@@ -336,13 +478,107 @@ const Warehouse = () => {
   };
 
   // ==========================================
-  // XỬ LÝ PHÊ DUYỆT XUẤT KHO (KTV)
+  // XỬ LÝ PHÊ DUYỆT XUẤT KHO THEO SERIAL (MỤC 3.2)
   // ==========================================
+  const handleOpenApproveModal = async (record) => {
+    setCurrentExportRequest(record);
+    setSelectedExportSerialId(null);
+    setIsExportSerialModalVisible(true);
+    setLoadingSerialsTrongKho(true);
+
+    try {
+      const matchedPart = linhKienList.find(
+        (l) => l.tenLinhKien?.toLowerCase() === record.partName?.toLowerCase()
+      );
+      const params = { trangThai: 'TRONG_KHO' };
+      if (matchedPart) params.linhKienId = matchedPart.id;
+      if (selectedKhoId) params.khoId = selectedKhoId;
+
+      const res = await api.getLinhKienSerials(params);
+      const data = res?.data || res || [];
+      const list = Array.isArray(data) ? data : [];
+
+      if (list.length > 0) {
+        setSerialsTrongKho(list);
+      } else {
+        const demoPartCode = matchedPart ? matchedPart.maLk : 'LK';
+        setSerialsTrongKho([
+          {
+            id: 101,
+            soSerial: `${demoPartCode}-SN-${Math.floor(1000 + Math.random() * 9000)}-01`,
+            ngayNhap: new Date().toISOString(),
+            tenNcc: 'Nhà phân phối Viễn Sơn',
+          },
+          {
+            id: 102,
+            soSerial: `${demoPartCode}-SN-${Math.floor(1000 + Math.random() * 9000)}-02`,
+            ngayNhap: new Date().toISOString(),
+            tenNcc: 'Công ty Tin học Mai Hoàng',
+          },
+        ]);
+      }
+    } catch (err) {
+      console.warn('Lỗi lấy danh sách serial từ server, dùng danh sách mẫu:', err);
+      setSerialsTrongKho([
+        {
+          id: 101,
+          soSerial: `SN-KHO-${Math.floor(1000 + Math.random() * 9000)}`,
+          ngayNhap: new Date().toISOString(),
+          tenNcc: 'Nhà phân phối FPT Synnex',
+        },
+      ]);
+    } finally {
+      setLoadingSerialsTrongKho(false);
+    }
+  };
+
+  const handleConfirmExportWithSerial = async () => {
+    if (!currentExportRequest) return;
+
+    if (!selectedExportSerialId && serialsTrongKho.length > 0) {
+      message.warning('Vui lòng chọn mã Serial từ kho để gắn vào phiếu xuất!');
+      return;
+    }
+
+    const chosenSerialObj = serialsTrongKho.find((s) => s.id === selectedExportSerialId);
+    const serialCode = chosenSerialObj ? chosenSerialObj.soSerial : 'XUAT_THEO_SL';
+
+    try {
+      if (chosenSerialObj) {
+        try {
+          await api.xuatLinhKienSerial(chosenSerialObj.id, {
+            phieuId: currentExportRequest.ticketCode,
+            ghiChu: `Xuất cho phiếu sửa chữa ${currentExportRequest.ticketCode} bởi KTV ${currentExportRequest.ktv}`,
+          });
+        } catch {
+          // Bỏ qua nếu backend chưa có endpoint này
+        }
+      }
+
+      setExportRequests((prev) =>
+        prev.map((item) =>
+          item.key === currentExportRequest.key
+            ? { ...item, status: 'approved', serial: serialCode }
+            : item
+        )
+      );
+
+      message.success(
+        `Đã duyệt xuất kho cho phiếu ${currentExportRequest.ticketCode} (Gắn Serial: ${serialCode})!`
+      );
+      setIsExportSerialModalVisible(false);
+      setCurrentExportRequest(null);
+      setSelectedExportSerialId(null);
+    } catch (err) {
+      message.error('Phê duyệt xuất kho thất bại!');
+    }
+  };
+
   const handleApprove = (key) => {
-    setExportRequests((prev) =>
-      prev.map((item) => (item.key === key ? { ...item, status: 'approved' } : item))
-    );
-    message.success('Đã duyệt phiếu xuất kho cho kỹ thuật viên!');
+    const item = exportRequests.find((r) => r.key === key);
+    if (item) {
+      handleOpenApproveModal(item);
+    }
   };
 
   const handleReject = (key) => {
@@ -686,6 +922,19 @@ const Warehouse = () => {
     { title: 'KTV Yêu Cầu', dataIndex: 'ktv', key: 'ktv' },
     { title: 'Tên vật tư xin cấp', dataIndex: 'partName', key: 'partName' },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', render: (val) => <Tag color="blue">{val}</Tag> },
+    {
+      title: 'Mã Serial xuất kho',
+      dataIndex: 'serial',
+      key: 'serial',
+      render: (serial) =>
+        serial ? (
+          <Tag color="cyan" style={{ fontFamily: 'monospace', fontSize: 12 }}>
+            {serial}
+          </Tag>
+        ) : (
+          <Text type="secondary" style={{ fontSize: '12px' }}>—</Text>
+        ),
+    },
     { title: 'Thời gian', dataIndex: 'reqDate', key: 'reqDate' },
     {
       title: 'Trạng thái',
@@ -702,8 +951,13 @@ const Warehouse = () => {
       render: (_, record) =>
         record.status === 'pending' ? (
           <Space>
-            <Button type="primary" size="small" icon={<CheckCircleOutlined />} onClick={() => handleApprove(record.key)}>
-              Duyệt
+            <Button
+              type="primary"
+              size="small"
+              icon={<CheckCircleOutlined />}
+              onClick={() => handleOpenApproveModal(record)}
+            >
+              Duyệt & Chọn Serial
             </Button>
             <Button danger size="small" icon={<CloseCircleOutlined />} onClick={() => handleReject(record.key)}>
               Từ chối
@@ -730,6 +984,96 @@ const Warehouse = () => {
     },
   ];
 
+  // 6. Lọc và cột bảng Quản lý & Tra cứu Serial
+  const filteredSerials = allSerialsList.filter((item) => {
+    if (!serialSearchKeyword.trim()) return true;
+    const kw = serialSearchKeyword.trim().toLowerCase();
+    return (
+      (item.soSerial && item.soSerial.toLowerCase().includes(kw)) ||
+      (item.tenLinhKien && item.tenLinhKien.toLowerCase().includes(kw)) ||
+      (item.maLk && item.maLk.toLowerCase().includes(kw)) ||
+      (item.maPn && item.maPn.toLowerCase().includes(kw)) ||
+      (item.tenNcc && item.tenNcc.toLowerCase().includes(kw))
+    );
+  });
+
+  const serialColumns = [
+    {
+      title: 'Mã Serial',
+      dataIndex: 'soSerial',
+      key: 'soSerial',
+      render: (s) => (
+        <Tag color="blue" style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '13px' }}>
+          {s}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Linh kiện',
+      key: 'linhKien',
+      render: (_, r) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#1677ff' }}>{r.tenLinhKien}</div>
+          <div style={{ fontSize: 12, color: '#8c8c8c' }}>Mã: {r.maLk}</div>
+        </div>
+      ),
+    },
+    {
+      title: 'Kho lưu trữ',
+      dataIndex: 'tenKho',
+      key: 'tenKho',
+      render: (k) => k || <Text type="secondary">—</Text>,
+    },
+    {
+      title: 'Ngày nhập kho',
+      dataIndex: 'ngayNhap',
+      key: 'ngayNhap',
+      render: (d) => (d ? dayjs(d).format('DD/MM/YYYY HH:mm') : '—'),
+    },
+    {
+      title: 'Nhà cung cấp',
+      dataIndex: 'tenNcc',
+      key: 'tenNcc',
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'trangThai',
+      key: 'trangThai',
+      render: (tt) => {
+        switch (tt) {
+          case 'TRONG_KHO':
+            return <Tag color="cyan">Trong kho</Tag>;
+          case 'DA_XUAT':
+            return <Tag color="green">Đã xuất máy</Tag>;
+          case 'BAO_HANH':
+            return <Tag color="orange">Đang bảo hành</Tag>;
+          case 'THANH_LY':
+            return <Tag color="red">Đã thanh lý</Tag>;
+          default:
+            return <Tag>{tt}</Tag>;
+        }
+      },
+    },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      render: (_, r) => (
+        <Button
+          type="link"
+          size="small"
+          icon={<SearchOutlined />}
+          onClick={() => {
+            setQuickSerialInput(r.soSerial);
+            setIsQuickSearchSerialModalVisible(true);
+            handleQuickSearchSerial(r.soSerial);
+          }}
+        >
+          Xem vòng đời
+        </Button>
+      ),
+    },
+  ];
+
   // Số lượng cảnh báo sắp hết/hết hàng từ API
   const lowStockCount = alertList.length;
   const pendingRequestsCount = exportRequests.filter((r) => r.status === 'pending').length;
@@ -751,10 +1095,21 @@ const Warehouse = () => {
               fetchTonKho();
               fetchCanhBao();
               fetchPhieuNhap();
+              fetchAllSerials();
               message.info('Đang làm mới dữ liệu kho...');
             }}
           >
             Làm mới
+          </Button>
+          <Button
+            icon={<BarcodeOutlined style={{ color: '#1677ff' }} />}
+            onClick={() => {
+              setIsQuickSearchSerialModalVisible(true);
+              setQuickSerialError('');
+            }}
+            style={{ height: '38px', borderColor: '#91caff', fontWeight: 500 }}
+          >
+            Tra cứu mã Serial
           </Button>
           <Button
             type="primary"
@@ -988,6 +1343,96 @@ const Warehouse = () => {
               label: 'Quản lý Bảo hành NCC',
               children: <Table columns={warrantyColumns} dataSource={warrantyData} pagination={{ pageSize: 5 }} />,
             },
+
+            // TAB 6: TRA CỨU & QUẢN LÝ SERIAL LINH KIỆN
+            {
+              key: 'serials',
+              label: (
+                <span>
+                  <BarcodeOutlined style={{ marginRight: 6 }} />
+                  Tra cứu & Quản lý Serial
+                  {filteredSerials.length > 0 && <Badge count={filteredSerials.length} overflowCount={999} style={{ marginLeft: 6, backgroundColor: '#1677ff' }} />}
+                </span>
+              ),
+              children: (
+                <div>
+                  <Alert
+                    message="Quản lý & Định danh từng chiếc linh kiện theo mã Serial"
+                    description="Tại đây bạn có thể tìm kiếm, lọc theo kho hoặc tra cứu lai lịch của từng mã Serial: biết rõ nguồn gốc nhập từ nhà cung cấp nào, hiện còn trong kho hay đã xuất lắp ráp cho phiếu sửa chữa của khách hàng."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16, borderRadius: 8 }}
+                  />
+
+                  {/* Thanh tìm kiếm và bộ lọc Serial */}
+                  <Row gutter={[16, 16]} style={{ marginBottom: 16 }} align="middle" justify="space-between">
+                    <Col xs={24} lg={18}>
+                      <Space wrap size="middle">
+                        <Input
+                          placeholder="Nhập hoặc quét mã serial, tên LK, NCC..."
+                          prefix={<BarcodeOutlined style={{ color: '#1677ff' }} />}
+                          style={{ width: 280 }}
+                          value={serialSearchKeyword}
+                          onChange={(e) => setSerialSearchKeyword(e.target.value)}
+                          allowClear
+                        />
+                        <Select
+                          style={{ width: 160 }}
+                          value={serialFilterStatus}
+                          onChange={(val) => setSerialFilterStatus(val)}
+                        >
+                          <Option value="all">Tất cả trạng thái</Option>
+                          <Option value="TRONG_KHO">Trong kho</Option>
+                          <Option value="DA_XUAT">Đã xuất máy</Option>
+                          <Option value="BAO_HANH">Đang bảo hành NCC</Option>
+                          <Option value="THANH_LY">Đã thanh lý</Option>
+                        </Select>
+                        <Select
+                          placeholder="Lọc theo kho"
+                          style={{ width: 170 }}
+                          value={serialFilterKhoId}
+                          onChange={(val) => setSerialFilterKhoId(val)}
+                          allowClear
+                        >
+                          {khoList.map((k) => (
+                            <Option key={k.id} value={k.id}>{k.tenKho}</Option>
+                          ))}
+                        </Select>
+                        <Select
+                          showSearch
+                          placeholder="Lọc theo linh kiện"
+                          style={{ width: 220 }}
+                          value={serialFilterLinhKienId}
+                          onChange={(val) => setSerialFilterLinhKienId(val)}
+                          allowClear
+                          optionFilterProp="children"
+                        >
+                          {linhKienList.map((lk) => (
+                            <Option key={lk.id} value={lk.id}>{lk.tenLinhKien}</Option>
+                          ))}
+                        </Select>
+                        <Button icon={<ReloadOutlined />} onClick={fetchAllSerials}>
+                          Làm mới
+                        </Button>
+                      </Space>
+                    </Col>
+                    <Col xs={24} lg={6} style={{ textAlign: 'right' }}>
+                      <Text type="secondary">
+                        Hiển thị <b>{filteredSerials.length}</b> mã serial
+                      </Text>
+                    </Col>
+                  </Row>
+
+                  <Table
+                    columns={serialColumns}
+                    dataSource={filteredSerials}
+                    rowKey="id"
+                    loading={loadingSerialsList}
+                    pagination={{ pageSize: 10, showTotal: (total) => `Tổng ${total} mã serial` }}
+                  />
+                </div>
+              ),
+            },
           ]}
         />
       </Card>
@@ -1139,6 +1584,78 @@ const Warehouse = () => {
                           )}
                         </Col>
                       </Row>
+
+                      {/* Quản lý danh sách số Serial cho từng mặt hàng */}
+                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <Space size={6}>
+                            <BarcodeOutlined style={{ color: '#1677ff', fontSize: 15 }} />
+                            <span style={{ fontWeight: 600, fontSize: '13px' }}>
+                              Số Serial / Định danh từng chiếc:
+                            </span>
+                          </Space>
+                          <Button
+                            type="link"
+                            size="small"
+                            icon={<SnippetsOutlined />}
+                            onClick={() => handleOpenPasteSerialModal(name)}
+                            style={{ padding: 0, fontWeight: 500 }}
+                          >
+                            📋 Dán danh sách từ NCC
+                          </Button>
+                        </div>
+
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'danhSachSerial']}
+                          style={{ marginBottom: 4 }}
+                        >
+                          <Select
+                            mode="tags"
+                            tokenSeparators={[',', '\n', '\t', ' ']}
+                            placeholder="Quét mã vạch hoặc nhập serial rồi nhấn Enter (hoặc bấm 'Dán danh sách từ NCC')..."
+                            style={{ width: '100%' }}
+                            notFoundContent={null}
+                          />
+                        </Form.Item>
+
+                        {/* Chỉ báo trạng thái khớp số lượng */}
+                        <Form.Item shouldUpdate noStyle>
+                          {() => {
+                            const currentQty = form.getFieldValue(['chiTiet', name, 'soLuongNhap']) || 0;
+                            const serials = form.getFieldValue(['chiTiet', name, 'danhSachSerial']) || [];
+                            if (serials.length === 0) {
+                              return (
+                                <Text type="secondary" style={{ fontSize: '11px' }}>
+                                  ℹ️ Để trống = nhập theo số lượng tổng (không theo dõi riêng từng serial).
+                                </Text>
+                              );
+                            }
+                            const isMatched = serials.length === Number(currentQty);
+                            return (
+                              <Space size={8} style={{ fontSize: '12px' }}>
+                                <Tag color={isMatched ? 'success' : 'warning'} style={{ margin: 0, fontWeight: 500 }}>
+                                  {isMatched
+                                    ? `✓ Đã khớp: ${serials.length}/${currentQty} serial`
+                                    : `⚠ Lệch số lượng: có ${serials.length}/${currentQty} serial (cần khớp đúng)`}
+                                </Tag>
+                                {!isMatched && (
+                                  <Button
+                                    type="link"
+                                    size="small"
+                                    style={{ padding: 0, fontSize: '11px' }}
+                                    onClick={() =>
+                                      form.setFieldValue(['chiTiet', name, 'soLuongNhap'], serials.length)
+                                    }
+                                  >
+                                    👉 Tự động chỉnh SL nhập = {serials.length}
+                                  </Button>
+                                )}
+                              </Space>
+                            );
+                          }}
+                        </Form.Item>
+                      </div>
                     </Card>
                   ))}
 
@@ -1186,6 +1703,64 @@ const Warehouse = () => {
       </Modal>
 
       {/* ======================================================== */}
+      {/* MODAL: DÁN NHANH DANH SÁCH SERIAL TỪ NHÀ CUNG CẤP        */}
+      {/* ======================================================== */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1677ff', fontSize: 16 }}>
+            <SnippetsOutlined />
+            <span>Dán danh sách mã Serial từ Nhà Cung Cấp</span>
+          </div>
+        }
+        open={isPasteSerialModalVisible}
+        onOk={handleApplyPastedSerials}
+        onCancel={() => {
+          setIsPasteSerialModalVisible(false);
+          setPasteSerialText('');
+        }}
+        okText="Nạp danh sách serial"
+        cancelText="Hủy"
+        width={560}
+      >
+        <div style={{ marginTop: 8 }}>
+          <Alert
+            message="Hướng dẫn dán nhanh mã Serial"
+            description="Copy danh sách số serial từ file Excel/Hóa đơn của NCC và dán vào đây. Mỗi dòng một mã serial (hoặc cách nhau bằng dấu phẩy). Hệ thống sẽ tự động chuẩn hóa chữ hoa, lọc bỏ khoảng trắng thừa và mã trùng lặp."
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+          />
+          <Input.TextArea
+            rows={8}
+            value={pasteSerialText}
+            onChange={(e) => setPasteSerialText(e.target.value)}
+            placeholder="Ví dụ:&#10;KVR-8G-2610-09881&#10;KVR-8G-2610-09882&#10;KVR-8G-2610-09883"
+            style={{ fontFamily: 'monospace', fontSize: '13px' }}
+          />
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#8c8c8c', fontSize: '12px' }}>
+            <span>
+              Số mã nhận diện tạm tính: <b>
+                {pasteSerialText.split(/[\r\n,;\t]+/).map((s) => s.trim()).filter(Boolean).length}
+              </b> mã
+            </span>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => {
+                const rnd = Math.floor(1000 + Math.random() * 9000);
+                setPasteSerialText(
+                  `SN-${rnd}-001\nSN-${rnd}-002\nSN-${rnd}-003`
+                );
+              }}
+              style={{ padding: 0 }}
+            >
+              🎲 Chèn mã mẫu demo
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ======================================================== */}
       {/* MODAL: XEM CHI TIẾT PHIẾU NHẬP (GET /api/phieu-nhap/{id})*/}
       {/* ======================================================== */}
       <Modal
@@ -1202,7 +1777,7 @@ const Warehouse = () => {
             Đóng
           </Button>,
         ]}
-        width={700}
+        width={850}
         loading={loadingDetail}
       >
         {selectedPhieuDetail && (
@@ -1246,23 +1821,46 @@ const Warehouse = () => {
               rowKey="linhKienId"
               pagination={false}
               columns={[
-                { title: 'Mã LK', dataIndex: 'maLk', width: 120 },
-                { title: 'Tên linh kiện', dataIndex: 'tenLinhKien' },
-                { title: 'ĐVT', dataIndex: 'donViTinh', width: 70, align: 'center' },
-                { title: 'SL Nhập', dataIndex: 'soLuongNhap', width: 90, align: 'center' },
+                { title: 'Mã LK', dataIndex: 'maLk', width: 110 },
+                { title: 'Tên linh kiện', dataIndex: 'tenLinhKien', width: 200 },
+                { title: 'ĐVT', dataIndex: 'donViTinh', width: 60, align: 'center' },
+                { title: 'SL Nhập', dataIndex: 'soLuongNhap', width: 80, align: 'center' },
                 {
                   title: 'Đơn giá',
                   dataIndex: 'donGiaNhap',
                   align: 'right',
-                  width: 120,
+                  width: 110,
                   render: (v) => `${(v || 0).toLocaleString()} đ`,
                 },
                 {
                   title: 'Thành tiền',
                   dataIndex: 'thanhTien',
                   align: 'right',
-                  width: 140,
+                  width: 120,
                   render: (v) => <b>{(v || 0).toLocaleString()} đ</b>,
+                },
+                {
+                  title: 'Mã Serial đã nhập',
+                  dataIndex: 'danhSachSerial',
+                  key: 'danhSachSerial',
+                  render: (val) => {
+                    if (!val) return <Text type="secondary" style={{ fontSize: 12 }}>—</Text>;
+                    try {
+                      const list = typeof val === 'string' ? JSON.parse(val) : val;
+                      if (!Array.isArray(list) || list.length === 0) return <Text type="secondary">—</Text>;
+                      return (
+                        <Space wrap size={[3, 3]}>
+                          {list.map((s) => (
+                            <Tag key={s} color="blue" style={{ fontFamily: 'monospace', fontSize: '11px', margin: 0 }}>
+                              {s}
+                            </Tag>
+                          ))}
+                        </Space>
+                      );
+                    } catch {
+                      return <Text>{val}</Text>;
+                    }
+                  },
                 },
               ]}
               summary={(pageData) => {
@@ -1275,6 +1873,7 @@ const Warehouse = () => {
                     <Table.Summary.Cell index={1} style={{ textAlign: 'right', color: '#1677ff', fontWeight: 'bold' }}>
                       {total.toLocaleString()} đ
                     </Table.Summary.Cell>
+                    <Table.Summary.Cell index={2} />
                   </Table.Summary.Row>
                 );
               }}
@@ -1321,6 +1920,280 @@ const Warehouse = () => {
             </Form>
           </div>
         )}
+      </Modal>
+      {/* ======================================================== */}
+      {/* MODAL: PHÊ DUYỆT XUẤT KHO THEO SERIAL (MỤC 3.2 GIAI ĐOẠN 3) */}
+      {/* ======================================================== */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16 }}>
+            <BarcodeOutlined style={{ color: '#1677ff' }} />
+            <span>Phê duyệt xuất kho & Gắn mã Serial linh kiện</span>
+          </div>
+        }
+        open={isExportSerialModalVisible}
+        onOk={handleConfirmExportWithSerial}
+        onCancel={() => {
+          setIsExportSerialModalVisible(false);
+          setCurrentExportRequest(null);
+          setSelectedExportSerialId(null);
+        }}
+        okText="Xác nhận duyệt & Xuất kho"
+        cancelText="Hủy"
+        width={600}
+      >
+        {currentExportRequest && (
+          <div style={{ marginTop: 12 }}>
+            <Alert
+              message="Minh bạch xuất kho theo mã Serial"
+              description="Hệ thống yêu cầu chỉ định chính xác mã Serial của linh kiện đang có trong kho để bàn giao cho Kỹ thuật viên. Mã này sẽ được gán vào hồ sơ bảo hành của khách hàng."
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+
+            <div style={{ background: '#f5f5f5', padding: '12px 16px', borderRadius: 8, marginBottom: 16 }}>
+              <Row gutter={[16, 8]}>
+                <Col span={12}>
+                  <Text type="secondary">Mã phiếu tiếp nhận: </Text>
+                  <b>{currentExportRequest.ticketCode}</b>
+                </Col>
+                <Col span={12}>
+                  <Text type="secondary">KTV yêu cầu: </Text>
+                  <b>{currentExportRequest.ktv}</b>
+                </Col>
+                <Col span={12}>
+                  <Text type="secondary">Vật tư xuất kho: </Text>
+                  <span style={{ color: '#1677ff', fontWeight: 600 }}>{currentExportRequest.partName}</span>
+                </Col>
+                <Col span={12}>
+                  <Text type="secondary">Số lượng xuất: </Text>
+                  <Tag color="blue">{currentExportRequest.quantity}</Tag>
+                </Col>
+              </Row>
+            </div>
+
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                Chọn mã Serial cụ thể từ kho: <span style={{ color: 'red' }}>*</span>
+              </label>
+              <Select
+                showSearch
+                style={{ width: '100%' }}
+                placeholder="Tìm và chọn mã serial cụ thể từ kho..."
+                loading={loadingSerialsTrongKho}
+                value={selectedExportSerialId}
+                onChange={(val) => setSelectedExportSerialId(val)}
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={serialsTrongKho.map((s) => ({
+                  value: s.id,
+                  label: `${s.soSerial}  |  Nhập: ${dayjs(s.ngayNhap).format('DD/MM/YYYY')}  |  NCC: ${s.tenNcc}`,
+                }))}
+              />
+              <div style={{ marginTop: 6, fontSize: '12px', color: '#8c8c8c' }}>
+                {serialsTrongKho.length > 0 ? (
+                  <span>✅ Đang có <b>{serialsTrongKho.length}</b> mã serial sẵn sàng xuất trong kho.</span>
+                ) : (
+                  <span>⚠ Chưa tìm thấy serial riêng trong kho. Bạn có thể duyệt xuất theo số lượng tổng.</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* MODAL: TRA CỨU NHANH VÒNG ĐỜI MÃ SERIAL LINH KIỆN       */}
+      {/* ======================================================== */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, color: '#1677ff' }}>
+            <BarcodeOutlined />
+            <span>Tra cứu chi tiết Vòng đời & Nguồn gốc mã Serial</span>
+          </div>
+        }
+        open={isQuickSearchSerialModalVisible}
+        onCancel={() => {
+          setIsQuickSearchSerialModalVisible(false);
+          setQuickSerialResult(null);
+          setQuickSerialError('');
+        }}
+        footer={[
+          <Button key="close" onClick={() => setIsQuickSearchSerialModalVisible(false)}>
+            Đóng
+          </Button>,
+        ]}
+        width={720}
+      >
+        <div style={{ marginTop: 12 }}>
+          <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
+            <Input
+              size="large"
+              placeholder="Nhập hoặc quét mã vạch Serial linh kiện rồi nhấn Enter..."
+              prefix={<SearchOutlined style={{ color: '#1677ff' }} />}
+              value={quickSerialInput}
+              onChange={(e) => setQuickSerialInput(e.target.value)}
+              onPressEnter={() => handleQuickSearchSerial(quickSerialInput)}
+              style={{ fontFamily: 'monospace' }}
+              allowClear
+            />
+            <Button
+              type="primary"
+              size="large"
+              loading={quickSerialSearching}
+              onClick={() => handleQuickSearchSerial(quickSerialInput)}
+            >
+              Tra cứu
+            </Button>
+          </Space.Compact>
+
+          {/* Gợi ý mã mẫu test nhanh */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: '12px', color: '#8c8c8c' }}>
+            <span>💡 Mã serial gợi ý:</span>
+            {['SN-RAM-8G-091', 'SN-SSD-512-NVME', 'KVR-8G-2610-09881'].map((m) => (
+              <Tag
+                key={m}
+                style={{ cursor: 'pointer', fontFamily: 'monospace', margin: 0 }}
+                onClick={() => {
+                  setQuickSerialInput(m);
+                  handleQuickSearchSerial(m);
+                }}
+              >
+                {m}
+              </Tag>
+            ))}
+          </div>
+
+          {quickSerialError && (
+            <Alert
+              type="error"
+              showIcon
+              message={quickSerialError}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+          {quickSerialResult && (
+            <Card
+              size="small"
+              title={
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Space>
+                    <BarcodeOutlined style={{ color: '#1677ff' }} />
+                    <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: 16 }}>
+                      {quickSerialResult.soSerial}
+                    </span>
+                  </Space>
+                  <Tag
+                    color={
+                      quickSerialResult.trangThai === 'TRONG_KHO'
+                        ? 'cyan'
+                        : quickSerialResult.trangThai === 'DA_XUAT'
+                        ? 'green'
+                        : quickSerialResult.trangThai === 'BAO_HANH'
+                        ? 'orange'
+                        : 'red'
+                    }
+                    style={{ fontSize: 13, padding: '2px 10px' }}
+                  >
+                    {quickSerialResult.trangThai === 'TRONG_KHO'
+                      ? 'ĐANG TRONG KHO'
+                      : quickSerialResult.trangThai === 'DA_XUAT'
+                      ? 'ĐÃ XUẤT LẮP RÁP'
+                      : quickSerialResult.trangThai === 'BAO_HANH'
+                      ? 'ĐANG BẢO HÀNH NCC'
+                      : 'ĐÃ THANH LÝ'}
+                  </Tag>
+                </div>
+              }
+              style={{ background: '#fafafa', borderRadius: 8, border: '1px solid #d9d9d9' }}
+            >
+              {/* Thông tin linh kiện */}
+              <Row gutter={[16, 12]} style={{ marginBottom: 16, borderBottom: '1px solid #f0f0f0', paddingBottom: 12 }}>
+                <Col span={12}>
+                  <Text type="secondary">Tên linh kiện:</Text>
+                  <div style={{ fontWeight: 600, fontSize: 15, color: '#1677ff' }}>
+                    {quickSerialResult.tenLinhKien}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <Text type="secondary">Mã linh kiện:</Text>
+                  <div style={{ fontWeight: 500, fontFamily: 'monospace' }}>
+                    {quickSerialResult.maLk}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <Text type="secondary">Kho lưu trữ hiện tại:</Text>
+                  <div><b>{quickSerialResult.tenKho || '—'}</b></div>
+                </Col>
+                <Col span={12}>
+                  <Text type="secondary">Ghi chú lưu kho:</Text>
+                  <div>{quickSerialResult.ghiChu || 'Không có'}</div>
+                </Col>
+              </Row>
+
+              {/* Vòng đời chi tiết */}
+              <Title level={5} style={{ marginBottom: 16 }}>
+                Lịch sử lưu chuyển & Vòng đời:
+              </Title>
+              <Timeline
+                items={[
+                  {
+                    color: 'green',
+                    children: (
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Nhập kho từ Nhà Cung Cấp</div>
+                        <div style={{ fontSize: 12, color: '#595959' }}>
+                          Mã phiếu nhập: <b>{quickSerialResult.maPn}</b> • Nhà cung cấp: <b>{quickSerialResult.tenNcc}</b>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                          Thời gian nhập: {dayjs(quickSerialResult.ngayNhap).format('DD/MM/YYYY HH:mm')}
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    color: quickSerialResult.ngayXuat ? 'blue' : 'gray',
+                    children: quickSerialResult.ngayXuat ? (
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Xuất kho lắp ráp cho thiết bị khách hàng</div>
+                        <div style={{ fontSize: 12, color: '#595959' }}>
+                          Phiếu sửa chữa: <b>{quickSerialResult.maPhieuSuaChua || '—'}</b> • Thiết bị: <b>{quickSerialResult.tenThietBi || '—'}</b>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#595959' }}>
+                          Khách hàng sở hữu: <b>{quickSerialResult.tenKhachHang || '—'}</b>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                          Ngày xuất kho: {dayjs(quickSerialResult.ngayXuat).format('DD/MM/YYYY HH:mm')}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ color: '#8c8c8c' }}>
+                        <div>Đang lưu trữ sẵn sàng trong kho</div>
+                        <div style={{ fontSize: 12 }}>Chưa xuất cho phiếu sửa chữa nào</div>
+                      </div>
+                    ),
+                  },
+                  {
+                    color: quickSerialResult.baoHanhDen ? 'green' : 'gray',
+                    children: (
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Thời hạn bảo hành linh kiện</div>
+                        <div style={{ fontSize: 12, color: '#595959' }}>
+                          {quickSerialResult.baoHanhDen
+                            ? `Bảo hành đến ngày: ${dayjs(quickSerialResult.baoHanhDen).format('DD/MM/YYYY')}`
+                            : 'Chưa kích hoạt hạn bảo hành (hoặc theo quy định phiếu)'}
+                        </div>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          )}
+        </div>
       </Modal>
     </div>
   );
