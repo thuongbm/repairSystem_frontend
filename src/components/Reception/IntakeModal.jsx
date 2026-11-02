@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   Modal,
   Form,
@@ -10,6 +10,7 @@ import {
   Radio,
   Checkbox,
   InputNumber,
+  DatePicker,
   Card,
   Tag,
   Divider,
@@ -23,7 +24,7 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined
 } from '@ant-design/icons';
-import { TECHNICIANS_LIST } from './mockReceptionData';
+import dayjs from 'dayjs';
 import { api } from '../../services/api';
 
 const COMMON_ISSUES = [
@@ -49,6 +50,25 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
   const [selectedIssueTags, setSelectedIssueTags] = useState([]);
   const [previewTicket, setPreviewTicket] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [technicians, setTechnicians] = useState([]);
+
+  // Danh sách KTV thật (kèm số ca đang làm) để phân công khi tiếp nhận
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    api
+      .getKyThuatVienPhanCong()
+      .then((res) => {
+        const data = res?.data || [];
+        if (!cancelled) setTechnicians(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) message.warning('Không tải được danh sách kỹ thuật viên. Bạn vẫn có thể tiếp nhận và phân công sau.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   const handleToggleIssue = (issue) => {
     if (selectedIssueTags.includes(issue)) {
@@ -68,7 +88,17 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         .filter(Boolean)
         .join('; ');
 
-      // Chuẩn bị payload kết nối API thực POST /api/phieu-sua-chua (Giai đoạn 3 - Mục 3.3)
+      // Ghi chú: những thông tin chưa có cột riêng trong DB (ưu tiên, dự toán, cọc) được lưu vào ghi chú phiếu
+      const ghiChuParts = [];
+      if (values.priority === 'Khẩn cấp') ghiChuParts.push('Ưu tiên: KHẨN CẤP');
+      if ((values.estimatedCost || 0) > 0) {
+        ghiChuParts.push(`Dự toán sơ bộ: ${Number(values.estimatedCost).toLocaleString('vi-VN')} đ`);
+      }
+      if ((values.deposit || 0) > 0) {
+        ghiChuParts.push(`Khách đã cọc: ${Number(values.deposit).toLocaleString('vi-VN')} đ`);
+      }
+
+      // POST /api/phieu-sua-chua (Giai đoạn 3 - Mục 3.3)
       const payload = {
         thietBiId: values.thietBiId || null,
         customerName: values.customerName?.trim(),
@@ -77,28 +107,28 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         deviceType: values.deviceType,
         deviceName: values.deviceName?.trim(),
         soSerial: values.serial?.trim() || null,
+        kyThuatVienId: values.technician || null,
         tinhTrangLoi: combinedIssues || 'Khách yêu cầu kiểm tra tổng quát',
         tinhTrangNgoaiQuan: values.condition?.trim() || null,
         phuKienKemTheo: values.accessories?.length > 0 ? values.accessories.join(', ') : null,
         matKhauMay: values.passcode?.trim() || null,
-        ngayHenTra: values.appointmentDate || null,
-        ghiChu: values.issueNotes?.trim() || null,
+        ngayHenTra: values.appointmentDate ? values.appointmentDate.toISOString() : null,
+        ghiChu: ghiChuParts.length > 0 ? ghiChuParts.join('; ') : null,
       };
 
-      let bePhieu = null;
-      try {
-        const res = await api.taoPhieuSuaChua(payload);
-        bePhieu = res?.data || res;
-      } catch (apiErr) {
-        console.warn('API /phieu-sua-chua chưa khả dụng hoặc báo lỗi, lưu offline quầy:', apiErr);
+      // Nếu API lỗi thì ném lỗi ra catch bên dưới: KHÔNG tạo phiếu/mã phiếu giả
+      const res = await api.taoPhieuSuaChua(payload);
+      const bePhieu = res?.data;
+      if (!bePhieu?.maPhieu) {
+        throw new Error('Máy chủ không trả về mã phiếu. Phiếu chưa được lưu.');
       }
-
-      const generatedCode = bePhieu?.maPhieu || `PN-${Math.floor(5520 + Math.random() * 80)}`;
+      const technicianName =
+        technicians.find((t) => t.id === values.technician)?.hoTen || 'Chưa phân công';
 
       const newTicket = {
-        id: bePhieu?.id || Date.now(),
-        key: `${bePhieu?.id || Date.now()}`,
-        code: generatedCode,
+        id: bePhieu.id,
+        key: `${bePhieu.id}`,
+        code: bePhieu.maPhieu,
         customer: values.customerName,
         phone: values.phone,
         email: values.email || '—',
@@ -115,9 +145,11 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           hour: '2-digit',
           minute: '2-digit',
         }),
-        appointmentDate: values.appointmentDate || 'Trong ngày hôm nay',
+        appointmentDate: values.appointmentDate
+          ? values.appointmentDate.format('HH:mm DD/MM/YYYY')
+          : 'Chưa hẹn giờ trả',
         priority: values.priority || 'Bình thường',
-        technician: values.technician || 'Chưa phân công',
+        technician: technicianName,
         status: 'Mới tiếp nhận',
         estimatedCost: values.estimatedCost || 0,
         deposit: values.deposit || 0,
@@ -130,7 +162,11 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
       message.success(`Đã tiếp nhận thành công phiếu sửa chữa ${newTicket.code}!`);
     } catch (err) {
       console.error(err);
-      message.error('Không thể tạo phiếu tiếp nhận. Vui lòng thử lại!');
+      message.error(
+        err.response?.data?.message ||
+          err.message ||
+          'Không thể tạo phiếu tiếp nhận. Vui lòng kiểm tra lại thông tin và thử lại!'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -260,7 +296,6 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             deviceType: 'Laptop',
             priority: 'Bình thường',
             deposit: 0,
-            appointmentDate: '17:30 (Hôm nay)',
             condition: 'Máy có trầy xước nhẹ mặt đáy, màn hình nguyên vẹn',
           }}
           style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '8px' }}
@@ -387,17 +422,25 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             <Col xs={24} md={8}>
               <Form.Item name="technician" label={<span style={{ fontWeight: 600 }}>Kỹ thuật viên phụ trách:</span>}>
                 <Select
-                  placeholder="Chọn KTV"
-                  options={TECHNICIANS_LIST.map((t) => ({
-                    value: t.name,
-                    label: `${t.name} (${t.specialty}) - Đang làm ${t.activeJobs} ca`,
+                  placeholder="Chọn KTV (để trống = phân công sau)"
+                  allowClear
+                  options={technicians.map((t) => ({
+                    value: t.id,
+                    label: `${t.hoTen}${t.chuyenMon ? ` (${t.chuyenMon})` : ''} - Đang làm ${t.soCaDangLam} ca`,
                   }))}
                 />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
               <Form.Item name="appointmentDate" label={<span style={{ fontWeight: 600 }}>Thời gian hẹn trả máy:</span>}>
-                <Input prefix={<ClockCircleOutlined />} placeholder="VD: 17:30 hôm nay hoặc 10:00 ngày mai" />
+                <DatePicker
+                  showTime={{ format: 'HH:mm' }}
+                  format="DD/MM/YYYY HH:mm"
+                  style={{ width: '100%' }}
+                  suffixIcon={<ClockCircleOutlined />}
+                  placeholder="Chọn ngày giờ hẹn trả"
+                  disabledDate={(current) => current && current < dayjs().startOf('day')}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
