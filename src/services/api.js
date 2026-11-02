@@ -146,8 +146,13 @@ export const api = {
     const res = await client.get(`/linh-kien-serial/bao-hanh/${encodeURIComponent(soSerial)}`);
     return res.data;
   },
-  xuatLinhKienSerial: async (id, payload) => {
-    const res = await client.post(`/linh-kien-serial/${id}/xuat`, payload);
+  // Xuất kho linh kiện cho phiếu sửa chữa (Thủ kho). payload: { khoId, linhKienId, soLuong, linhKienSerialIds }
+  xuatKhoPhieu: async (phieuId, payload) => {
+    const res = await client.post(`/phieu-sua-chua/${phieuId}/xuat-kho`, payload);
+    return res.data;
+  },
+  getXuatKhoPhieu: async (phieuId) => {
+    const res = await client.get(`/phieu-sua-chua/${phieuId}/xuat-kho`);
     return res.data;
   },
 
@@ -158,6 +163,16 @@ export const api = {
   },
   getPhieuSuaChua: async (params) => {
     const res = await client.get('/phieu-sua-chua', { params });
+    return res.data;
+  },
+  // Danh sách KTV kèm số ca đang làm (Admin, Lễ tân) để phân công khi tiếp nhận
+  getKyThuatVienPhanCong: async () => {
+    const res = await client.get('/phieu-sua-chua/ky-thuat-vien');
+    return res.data;
+  },
+  // payload: { trangThai, ghiChu, lyDoHuy, ketQuaSuaChua }
+  capNhatTrangThaiPhieu: async (id, payload) => {
+    const res = await client.put(`/phieu-sua-chua/${id}/trang-thai`, payload);
     return res.data;
   },
 };

@@ -22,8 +22,8 @@ import {
   Statistic,
   Popconfirm,
   Alert,
-  Descriptions,
   Timeline,
+  Spin,
 } from 'antd';
 import {
   PlusOutlined,
@@ -33,6 +33,7 @@ import {
   CloseCircleOutlined,
   WarningOutlined,
   ImportOutlined,
+  ExportOutlined,
   DeleteOutlined,
   EyeOutlined,
   EditOutlined,
@@ -42,7 +43,6 @@ import {
   CheckOutlined,
   BarcodeOutlined,
   SnippetsOutlined,
-  InfoCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { api } from '../services/api';
@@ -97,12 +97,21 @@ const Warehouse = () => {
   const [editingTonKhoItem, setEditingTonKhoItem] = useState(null);
   const [updatingMinStock, setUpdatingMinStock] = useState(false);
 
-  // Modal Phê duyệt xuất kho theo Serial (Giai đoạn 3 - Mục 3.2)
-  const [isExportSerialModalVisible, setIsExportSerialModalVisible] = useState(false);
-  const [currentExportRequest, setCurrentExportRequest] = useState(null);
-  const [serialsTrongKho, setSerialsTrongKho] = useState([]);
-  const [loadingSerialsTrongKho, setLoadingSerialsTrongKho] = useState(false);
-  const [selectedExportSerialId, setSelectedExportSerialId] = useState(null);
+  // Xuất kho cho phiếu sửa chữa theo Serial (Giai đoạn 3 - Mục 3.2)
+  const [repairTickets, setRepairTickets] = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [exportedByTicket, setExportedByTicket] = useState({});
+  const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+  const [exportTicket, setExportTicket] = useState(null);
+  const [exportKhoId, setExportKhoId] = useState(null);
+  const [exportStock, setExportStock] = useState([]);
+  const [exportLinhKienId, setExportLinhKienId] = useState(null);
+  const [exportQty, setExportQty] = useState(1);
+  const [exportSerials, setExportSerials] = useState([]);
+  const [exportSerialIds, setExportSerialIds] = useState([]);
+  const [loadingExportStock, setLoadingExportStock] = useState(false);
+  const [loadingExportSerials, setLoadingExportSerials] = useState(false);
+  const [submittingExport, setSubmittingExport] = useState(false);
 
   // --- State Quản lý & Tra cứu Serial Linh Kiện (Kho) ---
   const [allSerialsList, setAllSerialsList] = useState([]);
@@ -119,12 +128,7 @@ const Warehouse = () => {
   const [quickSerialResult, setQuickSerialResult] = useState(null);
   const [quickSerialError, setQuickSerialError] = useState('');
 
-  // --- Mock data giữ nguyên cho Phê duyệt xuất kho (KTV) & Bảo hành ---
-  const [exportRequests, setExportRequests] = useState([
-    { key: '1', ticketCode: 'TN-20231027-01', ktv: 'Tuấn Anh', partName: 'Ổ cứng SSD 512GB NVMe PCIe', quantity: 1, reqDate: '27/10/2023 14:30', status: 'pending', serial: null },
-    { key: '2', ticketCode: 'TN-20231027-04', ktv: 'Văn Hùng', partName: 'Keo tản nhiệt Arctic MX-4 (4g)', quantity: 1, reqDate: '27/10/2023 15:10', status: 'pending', note: 'Xin cấp phát mới đợt này', serial: null },
-    { key: '3', ticketCode: 'TN-20231026-12', ktv: 'Quốc Bảo', partName: 'RAM DDR4 8GB Bus 3200', quantity: 1, reqDate: '26/10/2023 09:15', status: 'approved', serial: 'SN-RAM-8G-091' },
-  ]);
+  // --- Mock data giữ nguyên cho Bảo hành NCC ---
 
   const [warrantyData] = useState([
     { key: '1', partName: 'Card màn hình RTX 3060 6GB', serial: 'SN30609823', error: 'Chập cháy mảng nguồn', supplier: 'Mai Hoàng PC', sendDate: '20/10/2023', status: 'Đang xử lý tại hãng' },
@@ -262,6 +266,22 @@ const Warehouse = () => {
     }
   };
 
+  // 5. Tải phiếu sửa chữa đang sửa / chờ linh kiện: GET /api/phieu-sua-chua?trangThai=DANG_SUA,CHO_LINH_KIEN
+  const fetchTickets = useCallback(async () => {
+    setLoadingTickets(true);
+    try {
+      const res = await api.getPhieuSuaChua({ trangThai: 'DANG_SUA,CHO_LINH_KIEN' });
+      const data = res?.data || [];
+      setRepairTickets(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Lỗi tải phiếu sửa chữa:', err);
+      message.error(err.response?.data?.message || 'Không thể tải danh sách phiếu sửa chữa.');
+      setRepairTickets([]);
+    } finally {
+      setLoadingTickets(false);
+    }
+  }, []);
+
   // Khởi chạy khi component mount
   useEffect(() => {
     fetchTonKho();
@@ -269,7 +289,8 @@ const Warehouse = () => {
     fetchPhieuNhap();
     fetchMetaCatalogs();
     fetchAllSerials();
-  }, [fetchTonKho, fetchCanhBao, fetchPhieuNhap, fetchMetaCatalogs, fetchAllSerials]);
+    fetchTickets();
+  }, [fetchTonKho, fetchCanhBao, fetchPhieuNhap, fetchMetaCatalogs, fetchAllSerials, fetchTickets]);
 
   // ==========================================
   // XỬ LÝ LẬP PHIẾU NHẬP (POST /api/phieu-nhap/tao-moi)
@@ -478,114 +499,131 @@ const Warehouse = () => {
   };
 
   // ==========================================
-  // XỬ LÝ PHÊ DUYỆT XUẤT KHO THEO SERIAL (MỤC 3.2)
+  // XUẤT KHO CHO PHIẾU SỬA CHỮA THEO SERIAL (MỤC 3.2)
+  // POST /api/phieu-sua-chua/{id}/xuat-kho (chỉ Thủ kho)
   // ==========================================
-  const handleOpenApproveModal = async (record) => {
-    setCurrentExportRequest(record);
-    setSelectedExportSerialId(null);
-    setIsExportSerialModalVisible(true);
-    setLoadingSerialsTrongKho(true);
-
+  const loadExportedLines = async (ticketId) => {
     try {
-      const matchedPart = linhKienList.find(
-        (l) => l.tenLinhKien?.toLowerCase() === record.partName?.toLowerCase()
-      );
-      const params = { trangThai: 'TRONG_KHO' };
-      if (matchedPart) params.linhKienId = matchedPart.id;
-      if (selectedKhoId) params.khoId = selectedKhoId;
-
-      const res = await api.getLinhKienSerials(params);
-      const data = res?.data || res || [];
-      const list = Array.isArray(data) ? data : [];
-
-      if (list.length > 0) {
-        setSerialsTrongKho(list);
-      } else {
-        const demoPartCode = matchedPart ? matchedPart.maLk : 'LK';
-        setSerialsTrongKho([
-          {
-            id: 101,
-            soSerial: `${demoPartCode}-SN-${Math.floor(1000 + Math.random() * 9000)}-01`,
-            ngayNhap: new Date().toISOString(),
-            tenNcc: 'Nhà phân phối Viễn Sơn',
-          },
-          {
-            id: 102,
-            soSerial: `${demoPartCode}-SN-${Math.floor(1000 + Math.random() * 9000)}-02`,
-            ngayNhap: new Date().toISOString(),
-            tenNcc: 'Công ty Tin học Mai Hoàng',
-          },
-        ]);
-      }
+      const res = await api.getXuatKhoPhieu(ticketId);
+      setExportedByTicket((prev) => ({ ...prev, [ticketId]: res?.data || [] }));
     } catch (err) {
-      console.warn('Lỗi lấy danh sách serial từ server, dùng danh sách mẫu:', err);
-      setSerialsTrongKho([
-        {
-          id: 101,
-          soSerial: `SN-KHO-${Math.floor(1000 + Math.random() * 9000)}`,
-          ngayNhap: new Date().toISOString(),
-          tenNcc: 'Nhà phân phối FPT Synnex',
-        },
-      ]);
-    } finally {
-      setLoadingSerialsTrongKho(false);
+      message.error(err.response?.data?.message || 'Không thể tải danh sách linh kiện đã xuất.');
     }
   };
 
-  const handleConfirmExportWithSerial = async () => {
-    if (!currentExportRequest) return;
+  // Tồn kho của kho được chọn (chỉ lấy mặt hàng còn hàng)
+  const loadExportStock = async (khoId) => {
+    setExportStock([]);
+    if (!khoId) return;
+    setLoadingExportStock(true);
+    try {
+      const res = await api.getTonKho({ khoId });
+      const data = res?.data || [];
+      setExportStock((Array.isArray(data) ? data : []).filter((i) => i.soLuongTon > 0));
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Không thể tải tồn kho của kho này.');
+    } finally {
+      setLoadingExportStock(false);
+    }
+  };
 
-    if (!selectedExportSerialId && serialsTrongKho.length > 0) {
-      message.warning('Vui lòng chọn mã Serial từ kho để gắn vào phiếu xuất!');
+  // Serial đang TRONG_KHO của linh kiện trong kho được chọn (nếu có => bắt buộc chọn serial)
+  const loadExportSerials = async (khoId, linhKienId) => {
+    setExportSerials([]);
+    setExportSerialIds([]);
+    if (!khoId || !linhKienId) return;
+    setLoadingExportSerials(true);
+    try {
+      const res = await api.getLinhKienSerials({ trangThai: 'TRONG_KHO', khoId, linhKienId });
+      const data = res?.data || [];
+      setExportSerials(Array.isArray(data) ? data : []);
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Không thể tải danh sách serial trong kho.');
+    } finally {
+      setLoadingExportSerials(false);
+    }
+  };
+
+  const handleOpenExportModal = (ticket) => {
+    const defaultKhoId = selectedKhoId || khoList[0]?.id || null;
+    setExportTicket(ticket);
+    setExportKhoId(defaultKhoId);
+    setExportLinhKienId(null);
+    setExportQty(1);
+    setExportSerials([]);
+    setExportSerialIds([]);
+    setIsExportModalVisible(true);
+    loadExportStock(defaultKhoId);
+    loadExportedLines(ticket.id);
+  };
+
+  const handleCloseExportModal = () => {
+    setIsExportModalVisible(false);
+    setExportTicket(null);
+    setExportKhoId(null);
+    setExportStock([]);
+    setExportLinhKienId(null);
+    setExportSerials([]);
+    setExportSerialIds([]);
+  };
+
+  const handleChangeExportKho = (khoId) => {
+    setExportKhoId(khoId);
+    setExportLinhKienId(null);
+    setExportQty(1);
+    setExportSerials([]);
+    setExportSerialIds([]);
+    loadExportStock(khoId);
+  };
+
+  const handleChangeExportLinhKien = (linhKienId) => {
+    setExportLinhKienId(linhKienId);
+    setExportQty(1);
+    loadExportSerials(exportKhoId, linhKienId);
+  };
+
+  const handleConfirmExport = async () => {
+    if (!exportTicket || !exportKhoId || !exportLinhKienId) {
+      message.warning('Vui lòng chọn kho và linh kiện cần xuất!');
       return;
     }
 
-    const chosenSerialObj = serialsTrongKho.find((s) => s.id === selectedExportSerialId);
-    const serialCode = chosenSerialObj ? chosenSerialObj.soSerial : 'XUAT_THEO_SL';
+    const tracked = exportSerials.length > 0;
+    if (tracked && exportSerialIds.length === 0) {
+      message.warning('Linh kiện này đang theo dõi theo serial. Vui lòng chọn serial cụ thể để xuất!');
+      return;
+    }
 
+    const ticketId = exportTicket.id;
+    setSubmittingExport(true);
     try {
-      if (chosenSerialObj) {
-        try {
-          await api.xuatLinhKienSerial(chosenSerialObj.id, {
-            phieuId: currentExportRequest.ticketCode,
-            ghiChu: `Xuất cho phiếu sửa chữa ${currentExportRequest.ticketCode} bởi KTV ${currentExportRequest.ktv}`,
-          });
-        } catch {
-          // Bỏ qua nếu backend chưa có endpoint này
-        }
-      }
-
-      setExportRequests((prev) =>
-        prev.map((item) =>
-          item.key === currentExportRequest.key
-            ? { ...item, status: 'approved', serial: serialCode }
-            : item
-        )
-      );
-
-      message.success(
-        `Đã duyệt xuất kho cho phiếu ${currentExportRequest.ticketCode} (Gắn Serial: ${serialCode})!`
-      );
-      setIsExportSerialModalVisible(false);
-      setCurrentExportRequest(null);
-      setSelectedExportSerialId(null);
+      const res = await api.xuatKhoPhieu(ticketId, {
+        khoId: exportKhoId,
+        linhKienId: exportLinhKienId,
+        soLuong: tracked ? exportSerialIds.length : exportQty,
+        linhKienSerialIds: tracked ? exportSerialIds : null,
+      });
+      message.success(res?.message || 'Xuất kho thành công!');
+      handleCloseExportModal();
+      // Đồng bộ lại dữ liệu thật từ máy chủ
+      fetchTonKho();
+      fetchCanhBao();
+      fetchAllSerials();
+      fetchTickets();
+      loadExportedLines(ticketId);
     } catch (err) {
-      message.error('Phê duyệt xuất kho thất bại!');
+      // Hiện lỗi thật, không giả lập thành công
+      const msg =
+        err.response?.data?.message ||
+        (err.response?.status === 403 ? 'Chỉ thủ kho mới được thực hiện xuất kho.' : null) ||
+        err.message ||
+        'Xuất kho thất bại.';
+      message.error(msg);
+      // Lỗi do dữ liệu cũ (serial vừa bị xuất...) thì tải lại danh sách serial để chọn lại
+      loadExportSerials(exportKhoId, exportLinhKienId);
+    } finally {
+      setSubmittingExport(false);
     }
-  };
-
-  const handleApprove = (key) => {
-    const item = exportRequests.find((r) => r.key === key);
-    if (item) {
-      handleOpenApproveModal(item);
-    }
-  };
-
-  const handleReject = (key) => {
-    setExportRequests((prev) =>
-      prev.map((item) => (item.key === key ? { ...item, status: 'rejected' } : item))
-    );
-    message.error('Đã từ chối phiếu xuất kho.');
   };
 
   // ==========================================
@@ -669,7 +707,7 @@ const Warehouse = () => {
         }
 
         return (
-          <Tag color={color} icon={icon} style={{ padding: '2px 10px', fontSize: '13px', fontWeight: 600 }}>
+          <Tag color={color} icon={icon} title={tooltipText} style={{ padding: '2px 10px', fontSize: '13px', fontWeight: 600 }}>
             {val} {record.donViTinh}
           </Tag>
         );
@@ -916,56 +954,101 @@ const Warehouse = () => {
     },
   ];
 
-  // 4. Cột bảng Phê duyệt xuất kho (KTV)
-  const exportColumns = [
-    { title: 'Mã Phiếu Tiếp Nhận', dataIndex: 'ticketCode', key: 'ticketCode', render: (text) => <b>{text}</b> },
-    { title: 'KTV Yêu Cầu', dataIndex: 'ktv', key: 'ktv' },
-    { title: 'Tên vật tư xin cấp', dataIndex: 'partName', key: 'partName' },
-    { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', render: (val) => <Tag color="blue">{val}</Tag> },
+  // 4. Cột bảng Xuất kho cho Phiếu sửa chữa (Thủ kho cấp phát cho KTV)
+  const ticketExportColumns = [
     {
-      title: 'Mã Serial xuất kho',
-      dataIndex: 'serial',
-      key: 'serial',
-      render: (serial) =>
-        serial ? (
-          <Tag color="cyan" style={{ fontFamily: 'monospace', fontSize: 12 }}>
-            {serial}
-          </Tag>
+      title: 'Mã Phiếu',
+      dataIndex: 'maPhieu',
+      key: 'maPhieu',
+      width: 140,
+      render: (code) => (
+        <Tag color="blue" style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '13px' }}>
+          {code}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Thiết bị & Khách hàng',
+      key: 'deviceAndCustomer',
+      render: (_, r) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#1f1f1f' }}>{r.tenThietBi}</div>
+          <div style={{ fontSize: 12, color: '#595959' }}>
+            Khách: <b>{r.tenKhachHang}</b> {r.soSerialThietBi ? `• SN: ${r.soSerialThietBi}` : ''}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'KTV Phụ trách',
+      dataIndex: 'tenKyThuatVien',
+      key: 'tenKyThuatVien',
+      width: 150,
+      render: (ktv) =>
+        ktv ? (
+          <Tag color="geekblue">{ktv}</Tag>
         ) : (
-          <Text type="secondary" style={{ fontSize: '12px' }}>—</Text>
+          <Text type="secondary" style={{ fontStyle: 'italic', fontSize: 12 }}>
+            Chưa phân công
+          </Text>
         ),
     },
-    { title: 'Thời gian', dataIndex: 'reqDate', key: 'reqDate' },
+    {
+      title: 'Tình trạng lỗi / Yêu cầu',
+      dataIndex: 'tinhTrangLoi',
+      key: 'tinhTrangLoi',
+      ellipsis: true,
+      render: (t) => <span title={t}>{t || '—'}</span>,
+    },
     {
       title: 'Trạng thái',
-      key: 'status',
-      render: (_, record) => {
-        if (record.status === 'pending') return <Tag color="processing">Chờ duyệt xuất</Tag>;
-        if (record.status === 'approved') return <Tag color="success">Đã duyệt xuất</Tag>;
-        return <Tag color="error">Từ chối</Tag>;
+      dataIndex: 'trangThai',
+      key: 'trangThai',
+      width: 130,
+      render: (status) => {
+        if (status === 'DANG_SUA') return <Tag color="processing">Đang sửa chữa</Tag>;
+        if (status === 'CHO_LINH_KIEN') return <Tag color="warning">Chờ linh kiện</Tag>;
+        return <Tag>{status}</Tag>;
+      },
+    },
+    {
+      title: 'Vật tư đã xuất',
+      key: 'exportedCount',
+      width: 140,
+      render: (_, r) => {
+        const lines = exportedByTicket[r.id];
+        if (lines === undefined) {
+          return (
+            <Button
+              size="small"
+              type="link"
+              onClick={() => loadExportedLines(r.id)}
+              style={{ padding: 0, fontSize: 12 }}
+            >
+              Tải lịch sử
+            </Button>
+          );
+        }
+        if (lines.length === 0) {
+          return <Text type="secondary" style={{ fontSize: 12 }}>Chưa xuất</Text>;
+        }
+        return <Tag color="green">{lines.length} dòng linh kiện</Tag>;
       },
     },
     {
       title: 'Thao tác',
       key: 'action',
-      render: (_, record) =>
-        record.status === 'pending' ? (
-          <Space>
-            <Button
-              type="primary"
-              size="small"
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleOpenApproveModal(record)}
-            >
-              Duyệt & Chọn Serial
-            </Button>
-            <Button danger size="small" icon={<CloseCircleOutlined />} onClick={() => handleReject(record.key)}>
-              Từ chối
-            </Button>
-          </Space>
-        ) : (
-          <span style={{ color: '#8c8c8c' }}>Đã xử lý</span>
-        ),
+      width: 140,
+      render: (_, record) => (
+        <Button
+          type="primary"
+          size="small"
+          icon={<ExportOutlined />}
+          onClick={() => handleOpenExportModal(record)}
+        >
+          Xuất kho
+        </Button>
+      ),
     },
   ];
 
@@ -1076,7 +1159,7 @@ const Warehouse = () => {
 
   // Số lượng cảnh báo sắp hết/hết hàng từ API
   const lowStockCount = alertList.length;
-  const pendingRequestsCount = exportRequests.filter((r) => r.status === 'pending').length;
+  const pendingTicketsCount = repairTickets.length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1085,7 +1168,7 @@ const Warehouse = () => {
         <div>
           <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700 }}>Quản lý Kho & Tồn kho Vật tư</h2>
           <Text type="secondary">
-            Giai đoạn 1: Nhập kho linh kiện, tự động cộng dồn tồn kho và giám sát ngưỡng cảnh báo an toàn
+            Quản lý nhập xuất linh kiện, tự động trừ/cộng dồn tồn kho và theo dõi số Serial thiết bị
           </Text>
         </div>
         <Space>
@@ -1096,6 +1179,7 @@ const Warehouse = () => {
               fetchCanhBao();
               fetchPhieuNhap();
               fetchAllSerials();
+              fetchTickets();
               message.info('Đang làm mới dữ liệu kho...');
             }}
           >
@@ -1158,9 +1242,9 @@ const Warehouse = () => {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
             <Statistic
-              title="Yêu cầu xuất chờ duyệt"
-              value={pendingRequestsCount}
-              valueStyle={{ color: pendingRequestsCount > 0 ? '#fa8c16' : '#595959' }}
+              title="Phiếu cần xuất vật tư"
+              value={pendingTicketsCount}
+              valueStyle={{ color: pendingTicketsCount > 0 ? '#fa8c16' : '#595959' }}
               prefix={<CheckCircleOutlined />}
               suffix="phiếu"
             />
@@ -1309,13 +1393,13 @@ const Warehouse = () => {
               ),
             },
 
-            // TAB 4: PHÊ DUYỆT XUẤT KHO (KTV)
+            // TAB 4: XUẤT KHO CHO PHIẾU SỬA CHỮA (MỤC 3.2 GIAI ĐOẠN 3)
             {
               key: 'export_requests',
               label: (
                 <span>
-                  Phê duyệt xuất kho (KTV)
-                  {pendingRequestsCount > 0 && <Badge count={pendingRequestsCount} style={{ marginLeft: 6 }} />}
+                  Xuất kho cho Phiếu sửa chữa
+                  {pendingTicketsCount > 0 && <Badge count={pendingTicketsCount} style={{ marginLeft: 6 }} />}
                 </span>
               ),
               children: (
@@ -1327,12 +1411,93 @@ const Warehouse = () => {
                       background: '#e6f4ff',
                       borderRadius: '8px',
                       border: '1px solid #91caff',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 8,
                     }}
                   >
-                    <CheckCircleOutlined style={{ color: '#1677ff', marginRight: '8px' }} />
-                    <b>Quy định kiểm soát:</b> 100% lệnh xuất linh kiện phải được gắn liền với Mã Phiếu Tiếp Nhận (Mã sửa chữa) của khách hàng để đối soát.
+                    <div>
+                      <CheckCircleOutlined style={{ color: '#1677ff', marginRight: '8px' }} />
+                      <b>Quy định kiểm soát:</b> 100% lệnh xuất linh kiện phải gắn liền với Mã Phiếu Tiếp Nhận của khách hàng (trạng thái Đang sửa / Chờ linh kiện). Nếu linh kiện theo dõi Serial, bắt buộc chỉ định mã Serial từ kho.
+                    </div>
+                    <Button
+                      icon={<ReloadOutlined />}
+                      size="small"
+                      onClick={fetchTickets}
+                      loading={loadingTickets}
+                    >
+                      Làm mới phiếu
+                    </Button>
                   </div>
-                  <Table columns={exportColumns} dataSource={exportRequests} pagination={{ pageSize: 5 }} />
+                  <Table
+                    columns={ticketExportColumns}
+                    dataSource={repairTickets}
+                    rowKey="id"
+                    loading={loadingTickets}
+                    pagination={{ pageSize: 8, showTotal: (t) => `Tổng ${t} phiếu cần xử lý` }}
+                    expandable={{
+                      expandedRowRender: (record) => {
+                        const lines = exportedByTicket[record.id] || [];
+                        if (lines.length === 0) {
+                          return (
+                            <div style={{ padding: '8px 16px', color: '#8c8c8c' }}>
+                              Chưa có linh kiện nào được xuất cho phiếu này. Nhấn nút <b>"Xuất kho"</b> ở cột thao tác để xuất vật tư cho KTV.
+                            </div>
+                          );
+                        }
+                        return (
+                          <div style={{ padding: '8px 16px', background: '#fafafa', borderRadius: 6 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#1d39c4' }}>
+                              📦 Danh sách linh kiện đã xuất cho phiếu {record.maPhieu}:
+                            </div>
+                            <Table
+                              size="small"
+                              pagination={false}
+                              rowKey="id"
+                              dataSource={lines}
+                              columns={[
+                                { title: 'Tên linh kiện', dataIndex: 'tenLinhKien', key: 'tenLinhKien' },
+                                { title: 'Kho xuất', dataIndex: 'tenKho', key: 'tenKho' },
+                                {
+                                  title: 'Số lượng',
+                                  dataIndex: 'soLuong',
+                                  key: 'soLuong',
+                                  render: (val) => <Tag color="blue">{val}</Tag>,
+                                },
+                                {
+                                  title: 'Mã Serial',
+                                  dataIndex: 'soSerial',
+                                  key: 'soSerial',
+                                  render: (s) =>
+                                    s ? (
+                                      <Tag color="cyan" style={{ fontFamily: 'monospace' }}>
+                                        {s}
+                                      </Tag>
+                                    ) : (
+                                      <Text type="secondary">—</Text>
+                                    ),
+                                },
+                                { title: 'Thủ kho xuất', dataIndex: 'tenThuKho', key: 'tenThuKho' },
+                                {
+                                  title: 'Thời gian xuất',
+                                  dataIndex: 'ngayXuat',
+                                  key: 'ngayXuat',
+                                  render: (d) => dayjs(d).format('DD/MM/YYYY HH:mm'),
+                                },
+                              ]}
+                            />
+                          </div>
+                        );
+                      },
+                      onExpand: (expanded, record) => {
+                        if (expanded && !exportedByTicket[record.id]) {
+                          loadExportedLines(record.id);
+                        }
+                      },
+                    }}
+                  />
                 </div>
               ),
             },
@@ -1922,83 +2087,185 @@ const Warehouse = () => {
         )}
       </Modal>
       {/* ======================================================== */}
-      {/* MODAL: PHÊ DUYỆT XUẤT KHO THEO SERIAL (MỤC 3.2 GIAI ĐOẠN 3) */}
+      {/* MODAL: XUẤT KHO CHO PHIẾU SỬA CHỮA (MỤC 3.2 GIAI ĐOẠN 3) */}
       {/* ======================================================== */}
       <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16 }}>
-            <BarcodeOutlined style={{ color: '#1677ff' }} />
-            <span>Phê duyệt xuất kho & Gắn mã Serial linh kiện</span>
+            <ExportOutlined style={{ color: '#1677ff' }} />
+            <span>Xuất linh kiện cho Phiếu sửa chữa</span>
           </div>
         }
-        open={isExportSerialModalVisible}
-        onOk={handleConfirmExportWithSerial}
-        onCancel={() => {
-          setIsExportSerialModalVisible(false);
-          setCurrentExportRequest(null);
-          setSelectedExportSerialId(null);
-        }}
-        okText="Xác nhận duyệt & Xuất kho"
+        open={isExportModalVisible}
+        onOk={handleConfirmExport}
+        onCancel={handleCloseExportModal}
+        confirmLoading={submittingExport}
+        okText="Xác nhận xuất kho"
         cancelText="Hủy"
-        width={600}
+        width={720}
       >
-        {currentExportRequest && (
+        {exportTicket && (
           <div style={{ marginTop: 12 }}>
             <Alert
-              message="Minh bạch xuất kho theo mã Serial"
-              description="Hệ thống yêu cầu chỉ định chính xác mã Serial của linh kiện đang có trong kho để bàn giao cho Kỹ thuật viên. Mã này sẽ được gán vào hồ sơ bảo hành của khách hàng."
+              message="Minh bạch quy trình xuất kho cho thiết bị khách hàng"
+              description="Linh kiện xuất kho sẽ trừ tồn tức thì và gắn liền với Phiếu Sửa Chữa. Nếu linh kiện quản lý theo Serial, hệ thống sẽ chuyển trạng thái Serial sang 'Đã xuất máy' và lưu vào lịch sử thiết bị để bảo hành."
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
             />
 
+            {/* Thông tin phiếu sửa chữa */}
             <div style={{ background: '#f5f5f5', padding: '12px 16px', borderRadius: 8, marginBottom: 16 }}>
               <Row gutter={[16, 8]}>
                 <Col span={12}>
-                  <Text type="secondary">Mã phiếu tiếp nhận: </Text>
-                  <b>{currentExportRequest.ticketCode}</b>
+                  <Text type="secondary">Mã phiếu sửa chữa: </Text>
+                  <Tag color="blue" style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                    {exportTicket.maPhieu}
+                  </Tag>
                 </Col>
                 <Col span={12}>
-                  <Text type="secondary">KTV yêu cầu: </Text>
-                  <b>{currentExportRequest.ktv}</b>
+                  <Text type="secondary">KTV phụ trách: </Text>
+                  <b>{exportTicket.tenKyThuatVien || 'Chưa phân công'}</b>
                 </Col>
                 <Col span={12}>
-                  <Text type="secondary">Vật tư xuất kho: </Text>
-                  <span style={{ color: '#1677ff', fontWeight: 600 }}>{currentExportRequest.partName}</span>
+                  <Text type="secondary">Khách hàng: </Text>
+                  <b>{exportTicket.tenKhachHang}</b>
                 </Col>
                 <Col span={12}>
-                  <Text type="secondary">Số lượng xuất: </Text>
-                  <Tag color="blue">{currentExportRequest.quantity}</Tag>
+                  <Text type="secondary">Thiết bị: </Text>
+                  <b>{exportTicket.tenThietBi}</b>
+                </Col>
+                <Col span={24}>
+                  <Text type="secondary">Mô tả lỗi: </Text>
+                  <span style={{ color: '#cf1322' }}>{exportTicket.tinhTrangLoi}</span>
                 </Col>
               </Row>
             </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                Chọn mã Serial cụ thể từ kho: <span style={{ color: 'red' }}>*</span>
-              </label>
-              <Select
-                showSearch
-                style={{ width: '100%' }}
-                placeholder="Tìm và chọn mã serial cụ thể từ kho..."
-                loading={loadingSerialsTrongKho}
-                value={selectedExportSerialId}
-                onChange={(val) => setSelectedExportSerialId(val)}
-                filterOption={(input, option) =>
-                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-                options={serialsTrongKho.map((s) => ({
-                  value: s.id,
-                  label: `${s.soSerial}  |  Nhập: ${dayjs(s.ngayNhap).format('DD/MM/YYYY')}  |  NCC: ${s.tenNcc}`,
-                }))}
-              />
-              <div style={{ marginTop: 6, fontSize: '12px', color: '#8c8c8c' }}>
-                {serialsTrongKho.length > 0 ? (
-                  <span>✅ Đang có <b>{serialsTrongKho.length}</b> mã serial sẵn sàng xuất trong kho.</span>
-                ) : (
-                  <span>⚠ Chưa tìm thấy serial riêng trong kho. Bạn có thể duyệt xuất theo số lượng tổng.</span>
+            {/* Form chọn kho, linh kiện, serial/số lượng */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                  1. Chọn kho xuất: <span style={{ color: 'red' }}>*</span>
+                </label>
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Chọn kho xuất hàng..."
+                  value={exportKhoId}
+                  onChange={handleChangeExportKho}
+                  options={khoList.map((k) => ({
+                    value: k.id,
+                    label: `${k.tenKho} (${k.diaChi || 'Kho chính'})`,
+                  }))}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                  2. Chọn linh kiện cần xuất: <span style={{ color: 'red' }}>*</span>
+                </label>
+                <Select
+                  showSearch
+                  style={{ width: '100%' }}
+                  placeholder={
+                    exportKhoId ? 'Tìm linh kiện có sẵn trong kho này...' : 'Vui lòng chọn kho trước'
+                  }
+                  disabled={!exportKhoId}
+                  loading={loadingExportStock}
+                  value={exportLinhKienId}
+                  onChange={handleChangeExportLinhKien}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={exportStock.map((i) => ({
+                    value: i.linhKienId,
+                    label: `${i.tenLinhKien} [${i.maLk}] — Còn tồn: ${i.soLuongTon} ${i.donViTinh || 'cái'}`,
+                  }))}
+                />
+                {exportKhoId && exportStock.length === 0 && !loadingExportStock && (
+                  <Text type="warning" style={{ fontSize: 12, marginTop: 4, display: 'block' }}>
+                    Kho này hiện không còn linh kiện nào khả dụng (tồn = 0).
+                  </Text>
                 )}
               </div>
+
+              {/* 3. Lựa chọn Serial hoặc Số lượng */}
+              {exportLinhKienId && (
+                <div>
+                  {loadingExportSerials ? (
+                    <div style={{ textAlign: 'center', padding: 12 }}>
+                      <Spin size="small" /> Đang kiểm tra mã Serial trong kho...
+                    </div>
+                  ) : exportSerials.length > 0 ? (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <label style={{ fontWeight: 600 }}>
+                          3. Chọn mã Serial xuất cho máy: <span style={{ color: 'red' }}>*</span>
+                        </label>
+                        <Tag color="cyan">Quản lý theo Serial ({exportSerials.length} chiếc sẵn sàng)</Tag>
+                      </div>
+                      <Select
+                        mode="multiple"
+                        showSearch
+                        style={{ width: '100%' }}
+                        placeholder="Chọn một hoặc nhiều mã serial cụ thể cần xuất..."
+                        value={exportSerialIds}
+                        onChange={setExportSerialIds}
+                        filterOption={(input, option) =>
+                          (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                        }
+                        options={exportSerials.map((s) => ({
+                          value: s.id,
+                          label: `${s.soSerial} (Nhập ngày ${dayjs(s.ngayNhap).format('DD/MM/YYYY')} - NCC: ${s.tenNcc})`,
+                        }))}
+                      />
+                      <div style={{ marginTop: 6, fontSize: 12 }}>
+                        {exportSerialIds.length > 0 ? (
+                          <span style={{ color: '#52c41a', fontWeight: 600 }}>
+                            Đã chọn {exportSerialIds.length} mã serial để xuất kho.
+                          </span>
+                        ) : (
+                          <span style={{ color: '#fa8c16' }}>
+                            ⚠ Bắt buộc chọn ít nhất một mã serial để tiếp tục.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                        3. Số lượng xuất: <span style={{ color: 'red' }}>*</span>
+                      </label>
+                      <InputNumber
+                        min={1}
+                        max={exportStock.find((i) => i.linhKienId === exportLinhKienId)?.soLuongTon || 999}
+                        value={exportQty}
+                        onChange={(v) => setExportQty(v || 1)}
+                        style={{ width: 160 }}
+                      />
+                      <span style={{ marginLeft: 8, color: '#8c8c8c', fontSize: 12 }}>
+                        (Linh kiện không theo dõi Serial, xuất theo số lượng)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Lịch sử đã xuất của phiếu này */}
+              {exportedByTicket[exportTicket?.id]?.length > 0 && (
+                <div style={{ marginTop: 8, background: '#f0f5ff', padding: '10px 14px', borderRadius: 6, border: '1px solid #adc6ff' }}>
+                  <div style={{ fontWeight: 600, fontSize: 12, color: '#1d39c4', marginBottom: 4 }}>
+                    Phiếu này đã được xuất các linh kiện:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {exportedByTicket[exportTicket.id].map((line) => (
+                      <Tag key={line.id} color="blue">
+                        {line.tenLinhKien} x{line.soLuong} {line.soSerial ? `(SN: ${line.soSerial})` : ''}
+                      </Tag>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
