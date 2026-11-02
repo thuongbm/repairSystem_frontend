@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, Typography, Layout, Alert, Divider, Space, Tag, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Form, Input, Button, Card, Typography, Layout, Alert, Divider, Space, Tag, message, Tabs } from 'antd';
+import { UserOutlined, LockOutlined, PhoneOutlined, MailOutlined, IdcardOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
@@ -29,26 +29,31 @@ const quickAccounts = [
   { label: 'Lễ tân', username: 'letan01', roleTag: 'blue' },
   { label: 'Thủ kho', username: 'thukho01', roleTag: 'green' },
   { label: 'Kỹ thuật viên', username: 'ktv01', roleTag: 'orange' },
+  { label: 'Khách hàng', username: 'khachhang01', roleTag: 'purple' },
 ];
 
 const Login = () => {
-  const [form] = Form.useForm();
+  const [loginForm] = Form.useForm();
+  const [registerForm] = Form.useForm();
+  const [activeTab, setActiveTab] = useState('login');
   const [loading, setLoading] = useState(false);
+  const [registerLoading, setRegisterLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [registerError, setRegisterError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
 
   const from = location.state?.from?.pathname || '/';
 
-  const onFinish = async (values) => {
+  // Xử lý đăng nhập
+  const onLoginFinish = async (values) => {
     setLoading(true);
     setErrorMessage('');
 
     try {
       const res = await api.login(values.username.trim(), values.password);
 
-      // Bóc tách dữ liệu phản hồi (hỗ trợ cả response bọc ApiResponse hoặc trực tiếp)
       const payload = res?.data?.data || res?.data || res;
       const token = payload?.token?.accessToken || res?.token?.accessToken;
       const rawUser = payload?.user || res?.user;
@@ -57,7 +62,6 @@ const Login = () => {
         throw new Error('Không nhận được thông tin xác thực từ máy chủ.');
       }
 
-      // Chuẩn hóa role và thông tin người dùng cho Frontend
       const { role, roleName } = mapBackendRole(rawUser.vaiTro);
       const userProfile = {
         id: rawUser.taiKhoanId,
@@ -68,11 +72,17 @@ const Login = () => {
         roleName,
       };
 
-      // Lưu vào Context và localStorage
       login(userProfile, token);
 
       message.success(`Đăng nhập thành công! Chào mừng ${userProfile.name} (${roleName}).`);
-      navigate(from, { replace: true });
+      
+      // Nếu là khách hàng thì về trang chủ dịch vụ, nếu là nhân sự thì vào bảng điều khiển nội bộ
+      if (role === 'customer') {
+        navigate('/', { replace: true });
+      } else {
+        const dest = from !== '/' && from !== '/login' ? from : '/dashboard';
+        navigate(dest, { replace: true });
+      }
     } catch (err) {
       console.error('Login error:', err);
       const serverMsg =
@@ -86,152 +96,381 @@ const Login = () => {
     }
   };
 
+  // Xử lý đăng ký tài khoản khách hàng mới
+  const onRegisterFinish = async (values) => {
+    setRegisterLoading(true);
+    setRegisterError('');
+
+    try {
+      const payload = {
+        username: values.reg_username.trim(),
+        password: values.reg_password,
+        confirmPassword: values.reg_confirmPassword,
+        hoTen: values.reg_hoTen.trim(),
+        soDienThoai: values.reg_soDienThoai.trim(),
+        email: values.reg_email ? values.reg_email.trim() : null,
+      };
+
+      const res = await api.register(payload);
+      message.success(res?.message || 'Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay.');
+      
+      // Chuyển sang tab đăng nhập và điền sẵn username
+      setActiveTab('login');
+      loginForm.setFieldsValue({
+        username: values.reg_username.trim(),
+        password: values.reg_password,
+      });
+      registerForm.resetFields();
+    } catch (err) {
+      console.error('Register error:', err);
+      const serverMsg =
+        err.response?.data?.message ||
+        err.response?.data?.errors?.[0] ||
+        err.message ||
+        'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.';
+      setRegisterError(serverMsg);
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
   const handleQuickFill = (acc) => {
-    form.setFieldsValue({
+    loginForm.setFieldsValue({
       username: acc.username,
-      password: 'Password@123', // Mật khẩu mẫu gợi ý
+      password: 'Password@123',
     });
     setErrorMessage('');
+    setActiveTab('login');
   };
 
   return (
     <Layout
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '20px',
+        padding: '24px 16px',
       }}
     >
-      <Card
-        style={{
-          width: 440,
-          borderRadius: 16,
-          boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-          border: '1px solid rgba(255,255,255,0.08)',
-        }}
-        bodyStyle={{ padding: '36px 32px' }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div
+      <div style={{ width: '100%', maxWidth: 460 }}>
+        {/* Nút quay lại trang chủ khách hàng */}
+        <div style={{ marginBottom: 16 }}>
+          <Link
+            to="/"
             style={{
-              width: 56,
-              height: 56,
-              background: '#1677ff',
-              borderRadius: '50%',
-              display: 'flex',
-              justifyContent: 'center',
+              color: '#94a3b8',
+              display: 'inline-flex',
               alignItems: 'center',
-              margin: '0 auto 16px',
-              boxShadow: '0 8px 16px rgba(22,119,255,0.3)',
+              gap: 8,
+              fontSize: '14px',
+              transition: 'color 0.2s',
             }}
           >
-            <span style={{ fontSize: '28px' }}>🔧</span>
-          </div>
-          <Title level={3} style={{ margin: 0, fontWeight: 700 }}>
-            TechFix System
-          </Title>
-          <Text type="secondary" style={{ fontSize: '14px' }}>
-            Hệ thống quản lý dịch vụ sửa chữa thiết bị
-          </Text>
+            <ArrowLeftOutlined /> Quay lại Trang dịch vụ khách hàng
+          </Link>
         </div>
 
-        {errorMessage && (
-          <Alert
-            message="Lỗi đăng nhập"
-            description={errorMessage}
-            type="error"
-            showIcon
-            closable
-            onClose={() => setErrorMessage('')}
-            style={{ marginBottom: 20, borderRadius: 8 }}
-          />
-        )}
-
-        <Form
-          form={form}
-          name="login_form"
-          layout="vertical"
-          onFinish={onFinish}
-          initialValues={{ username: '', password: '' }}
-          requiredMark={false}
+        <Card
+          style={{
+            borderRadius: 16,
+            boxShadow: '0 20px 50px rgba(0,0,0,0.4)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
+          bodyStyle={{ padding: '28px 24px' }}
         >
-          <Form.Item
-            label="Tên đăng nhập"
-            name="username"
-            rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
-          >
-            <Input
-              prefix={<UserOutlined style={{ color: '#8c8c8c' }} />}
-              placeholder="Ví dụ: admin, letan01..."
-              size="large"
-              autoComplete="username"
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Mật khẩu"
-            name="password"
-            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined style={{ color: '#8c8c8c' }} />}
-              placeholder="Nhập mật khẩu"
-              size="large"
-              autoComplete="current-password"
-            />
-          </Form.Item>
-
-          <Form.Item style={{ marginTop: 24, marginBottom: 12 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
-              loading={loading}
-              block
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <div
               style={{
-                height: 44,
-                borderRadius: 8,
-                fontSize: '16px',
-                fontWeight: 600,
+                width: 52,
+                height: 52,
+                background: '#1677ff',
+                borderRadius: '50%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                margin: '0 auto 12px',
+                boxShadow: '0 8px 16px rgba(22,119,255,0.3)',
               }}
             >
-              {loading ? 'Đang xác thực...' : 'Đăng nhập'}
-            </Button>
-          </Form.Item>
-        </Form>
-
-        <Divider style={{ margin: '20px 0 16px', fontSize: '12px', color: '#8c8c8c' }}>
-          Tài khoản mẫu thử nghiệm
-        </Divider>
-
-        <div style={{ textAlign: 'center' }}>
-          <Space wrap size={[8, 8]} style={{ justifyContent: 'center' }}>
-            {quickAccounts.map((acc) => (
-              <Tag
-                key={acc.username}
-                color={acc.roleTag}
-                style={{
-                  cursor: 'pointer',
-                  padding: '4px 10px',
-                  borderRadius: 6,
-                  fontSize: '12px',
-                }}
-                onClick={() => handleQuickFill(acc)}
-              >
-                {acc.label}: <strong>{acc.username}</strong>
-              </Tag>
-            ))}
-          </Space>
-          <div style={{ marginTop: 8 }}>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              💡 Nhấn vào thẻ vai trò để điền nhanh tên tài khoản
+              <span style={{ fontSize: '26px' }}>🔧</span>
+            </div>
+            <Title level={3} style={{ margin: 0, fontWeight: 700 }}>
+              TechFix System
+            </Title>
+            <Text type="secondary" style={{ fontSize: '13px' }}>
+              Trung tâm Dịch vụ & Quản lý sửa chữa thiết bị
             </Text>
           </div>
-        </div>
-      </Card>
+
+          <Tabs
+            activeKey={activeTab}
+            onChange={(key) => {
+              setActiveTab(key);
+              setErrorMessage('');
+              setRegisterError('');
+            }}
+            centered
+            items={[
+              {
+                key: 'login',
+                label: <span style={{ fontWeight: 600, padding: '0 8px' }}>Đăng nhập</span>,
+                children: (
+                  <div style={{ marginTop: 8 }}>
+                    {errorMessage && (
+                      <Alert
+                        message="Lỗi đăng nhập"
+                        description={errorMessage}
+                        type="error"
+                        showIcon
+                        closable
+                        onClose={() => setErrorMessage('')}
+                        style={{ marginBottom: 16, borderRadius: 8 }}
+                      />
+                    )}
+
+                    <Form
+                      form={loginForm}
+                      name="login_form"
+                      layout="vertical"
+                      onFinish={onLoginFinish}
+                      initialValues={{ username: '', password: '' }}
+                      requiredMark={false}
+                    >
+                      <Form.Item
+                        label="Tên đăng nhập"
+                        name="username"
+                        rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
+                      >
+                        <Input
+                          prefix={<UserOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Tên đăng nhập hoặc SĐT..."
+                          size="large"
+                          autoComplete="username"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Mật khẩu"
+                        name="password"
+                        rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
+                      >
+                        <Input.Password
+                          prefix={<LockOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Nhập mật khẩu..."
+                          size="large"
+                          autoComplete="current-password"
+                        />
+                      </Form.Item>
+
+                      <Form.Item style={{ marginTop: 20, marginBottom: 12 }}>
+                        <Button
+                          type="primary"
+                          htmlType="submit"
+                          size="large"
+                          loading={loading}
+                          block
+                          style={{
+                            height: 44,
+                            borderRadius: 8,
+                            fontSize: '15px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {loading ? 'Đang xác thực...' : 'Đăng nhập ngay'}
+                        </Button>
+                      </Form.Item>
+                    </Form>
+
+                    <div style={{ textAlign: 'center', marginTop: 12 }}>
+                      <Text type="secondary" style={{ fontSize: '13px' }}>
+                        Chưa có tài khoản?{' '}
+                        <a
+                          style={{ fontWeight: 600, color: '#1677ff' }}
+                          onClick={() => setActiveTab('register')}
+                        >
+                          Đăng ký tài khoản khách hàng
+                        </a>
+                      </Text>
+                    </div>
+
+                    <Divider style={{ margin: '20px 0 14px', fontSize: '12px', color: '#8c8c8c' }}>
+                      Tài khoản mẫu thử nghiệm nhanh
+                    </Divider>
+
+                    <div style={{ textAlign: 'center' }}>
+                      <Space wrap size={[6, 6]} style={{ justifyContent: 'center' }}>
+                        {quickAccounts.map((acc) => (
+                          <Tag
+                            key={acc.username}
+                            color={acc.roleTag}
+                            style={{
+                              cursor: 'pointer',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              fontSize: '12px',
+                            }}
+                            onClick={() => handleQuickFill(acc)}
+                          >
+                            {acc.label}: <strong>{acc.username}</strong>
+                          </Tag>
+                        ))}
+                      </Space>
+                      <div style={{ marginTop: 6 }}>
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          💡 Nhấn vào thẻ để điền nhanh thông tin mẫu
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: 'register',
+                label: <span style={{ fontWeight: 600, padding: '0 8px' }}>Đăng ký khách hàng</span>,
+                children: (
+                  <div style={{ marginTop: 8 }}>
+                    {registerError && (
+                      <Alert
+                        message="Lỗi đăng ký"
+                        description={registerError}
+                        type="error"
+                        showIcon
+                        closable
+                        onClose={() => setRegisterError('')}
+                        style={{ marginBottom: 16, borderRadius: 8 }}
+                      />
+                    )}
+
+                    <Form
+                      form={registerForm}
+                      name="register_form"
+                      layout="vertical"
+                      onFinish={onRegisterFinish}
+                      requiredMark="optional"
+                    >
+                      <Form.Item
+                        label="Họ và tên của bạn"
+                        name="reg_hoTen"
+                        rules={[{ required: true, message: 'Vui lòng nhập họ và tên!' }]}
+                      >
+                        <Input
+                          prefix={<IdcardOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Ví dụ: Nguyễn Văn A"
+                          size="large"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Số điện thoại (Nhận diện thiết bị & tra cứu)"
+                        name="reg_soDienThoai"
+                        rules={[
+                          { required: true, message: 'Vui lòng nhập số điện thoại!' },
+                          { pattern: /^[0-9+ ]{8,15}$/, message: 'Số điện thoại gồm 8-15 chữ số!' },
+                        ]}
+                        tooltip="Dùng để liên kết với các thiết bị và phiếu bảo hành của bạn tại cửa hàng"
+                      >
+                        <Input
+                          prefix={<PhoneOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Ví dụ: 0912345678"
+                          size="large"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Email liên hệ (Không bắt buộc)"
+                        name="reg_email"
+                        rules={[{ type: 'email', message: 'Email không đúng định dạng!' }]}
+                      >
+                        <Input
+                          prefix={<MailOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Ví dụ: nguyenvana@gmail.com"
+                          size="large"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Tên đăng nhập"
+                        name="reg_username"
+                        rules={[
+                          { required: true, message: 'Vui lòng nhập tên đăng nhập!' },
+                          { min: 4, message: 'Tối thiểu 4 ký tự!' },
+                          { pattern: /^[a-zA-Z0-9_.]+$/, message: 'Chỉ gồm chữ, số, dấu chấm và gạch dưới!' },
+                        ]}
+                      >
+                        <Input
+                          prefix={<UserOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Ví dụ: khachhang_an hoặc dùng luôn SĐT"
+                          size="large"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Mật khẩu"
+                        name="reg_password"
+                        rules={[
+                          { required: true, message: 'Vui lòng nhập mật khẩu!' },
+                          { min: 6, message: 'Mật khẩu tối thiểu 6 ký tự!' },
+                        ]}
+                      >
+                        <Input.Password
+                          prefix={<LockOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Tối thiểu 6 ký tự"
+                          size="large"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Xác nhận lại mật khẩu"
+                        name="reg_confirmPassword"
+                        dependencies={['reg_password']}
+                        rules={[
+                          { required: true, message: 'Vui lòng xác nhận mật khẩu!' },
+                          ({ getFieldValue }) => ({
+                            validator(_, value) {
+                              if (!value || getFieldValue('reg_password') === value) {
+                                return Promise.resolve();
+                              }
+                              return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                            },
+                          }),
+                        ]}
+                      >
+                        <Input.Password
+                          prefix={<LockOutlined style={{ color: '#8c8c8c' }} />}
+                          placeholder="Nhập lại mật khẩu"
+                          size="large"
+                        />
+                      </Form.Item>
+
+                      <Form.Item style={{ marginTop: 20, marginBottom: 12 }}>
+                        <Button
+                          type="primary"
+                          htmlType="submit"
+                          size="large"
+                          loading={registerLoading}
+                          block
+                          style={{
+                            height: 44,
+                            borderRadius: 8,
+                            fontSize: '15px',
+                            fontWeight: 600,
+                            background: '#10b981',
+                            borderColor: '#10b981',
+                          }}
+                        >
+                          {registerLoading ? 'Đang tạo tài khoản...' : 'Hoàn tất đăng ký'}
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      </div>
     </Layout>
   );
 };

@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/Layout/MainLayout';
-import Home from './pages/Home';
+import CustomerPortal from './pages/CustomerPortal';
+import Dashboard from './pages/Dashboard';
 import Appointments from './pages/Appointments';
 import Reception from './pages/Reception';
 import Pricing from './pages/Pricing';
@@ -17,41 +18,45 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* CỔNG KHÁCH HÀNG: Công khai cho mọi người truy cập */}
+          <Route path="/" element={<CustomerPortal />} />
+
+          {/* CỔNG ĐĂNG NHẬP & ĐĂNG KÝ */}
           <Route path="/login" element={<Login />} />
-          
-          <Route path="/" element={<ProtectedRoute />}>
+
+          {/* CỔNG QUẢN TRỊ & NGHIỆP VỤ NHÂN SỰ */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'technician', 'warehouse', 'receptionist']} />}>
             <Route element={<MainLayout />}>
-              {/* Home determines whether to show Dashboard or CustomerPortal */}
-              <Route index element={<Home />} />
-              
-              {/* Admin, Technician and Receptionist */}
+              <Route path="/dashboard" element={<Dashboard />} />
+
+              {/* Lễ tân, Kỹ thuật viên & Quản trị viên */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'technician', 'receptionist']} />}>
-                <Route path="reception" element={<Reception />} />
-                <Route path="appointments" element={<Appointments />} />
+                <Route path="/reception" element={<Reception />} />
+                <Route path="/appointments" element={<Appointments />} />
               </Route>
 
-              {/* Admin and Technician */}
+              {/* Kỹ thuật viên & Quản trị viên */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'technician']} />}>
-                <Route path="technician" element={<Technician />} />
+                <Route path="/technician" element={<Technician />} />
               </Route>
 
-              {/* Admin and Warehouse */}
+              {/* Thủ kho & Quản trị viên */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'warehouse']} />}>
-                <Route path="warehouse" element={<Warehouse />} />
+                <Route path="/warehouse" element={<Warehouse />} />
               </Route>
 
-              {/* Admin and Receptionist */}
+              {/* Bảng giá dịch vụ */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'receptionist']} />}>
-                <Route path="pricing" element={<Pricing />} />
+                <Route path="/pricing" element={<Pricing />} />
               </Route>
 
-              {/* Admin only */}
+              {/* Quản trị nhân sự (Chỉ Admin) */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                <Route path="hr" element={<HR />} />
+                <Route path="/hr" element={<HR />} />
               </Route>
             </Route>
           </Route>
-          
+
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

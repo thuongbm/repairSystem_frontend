@@ -40,6 +40,10 @@ export const api = {
     const res = await client.post('/auth/login', { username, password });
     return res.data;
   },
+  register: async (payload) => {
+    const res = await client.post('/auth/register', payload);
+    return res.data;
+  },
   getMe: async () => {
     const res = await client.get('/auth/me');
     return res.data;

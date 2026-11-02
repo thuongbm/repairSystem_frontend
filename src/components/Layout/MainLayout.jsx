@@ -1,4 +1,4 @@
-import { Layout, Menu, Input, Avatar, Badge, Dropdown } from 'antd';
+import { Layout, Menu, Input, Avatar, Badge, Dropdown, Button } from 'antd';
 import {
   DashboardOutlined,
   CalendarOutlined,
@@ -12,6 +12,7 @@ import {
   AppstoreOutlined,
   LogoutOutlined,
   UserOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -27,8 +28,8 @@ const MainLayout = () => {
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
-      label: user?.role === 'customer' ? 'Dịch vụ của tôi' : 'Tổng quan',
-      roles: ['admin', 'technician', 'warehouse', 'receptionist', 'customer'],
+      label: 'Tổng quan hệ thống',
+      roles: ['admin', 'technician', 'warehouse', 'receptionist'],
     },
     {
       key: 'reception',
@@ -72,13 +73,13 @@ const MainLayout = () => {
   const menuItems = user ? allMenuItems.filter((item) => item.roles.includes(user.role)) : allMenuItems;
 
   const handleMenuClick = ({ key }) => {
-    if (key === 'dashboard') navigate('/');
+    if (key === 'dashboard') navigate('/dashboard');
     else navigate(`/${key}`);
   };
 
   const getSelectedKey = () => {
     const path = location.pathname.substring(1);
-    return path === '' ? 'dashboard' : path;
+    return path === '' || path === 'dashboard' ? 'dashboard' : path;
   };
 
   const handleLogout = () => {
@@ -119,6 +120,14 @@ const MainLayout = () => {
         type: 'divider',
       },
       {
+        key: 'customer-portal',
+        label: 'Xem Cổng Khách Hàng (Trang chủ)',
+        icon: <GlobalOutlined />,
+      },
+      {
+        type: 'divider',
+      },
+      {
         key: 'logout',
         label: 'Đăng xuất',
         icon: <LogoutOutlined />,
@@ -128,6 +137,8 @@ const MainLayout = () => {
     onClick: ({ key }) => {
       if (key === 'logout') {
         handleLogout();
+      } else if (key === 'customer-portal') {
+        navigate('/');
       }
     },
   };
@@ -188,6 +199,21 @@ const MainLayout = () => {
         />
 
         <div style={{ padding: '20px', marginTop: 'auto' }}>
+          <Button
+            type="dashed"
+            block
+            icon={<GlobalOutlined />}
+            onClick={() => navigate('/')}
+            style={{
+              color: '#94a3b8',
+              borderColor: '#334155',
+              background: '#252e42',
+              marginBottom: 12,
+            }}
+          >
+            Xem Cổng Khách Hàng
+          </Button>
+
           <div style={{ background: '#252e42', padding: '15px', borderRadius: '8px', color: 'white' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
               <QuestionCircleOutlined />
@@ -219,11 +245,19 @@ const MainLayout = () => {
             <span style={{ color: '#8c8c8c', fontSize: '13px' }}>Hệ thống quản lý bảo trì & sửa chữa</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', lineHeight: 'normal' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', lineHeight: 'normal' }}>
+            <Button
+              icon={<GlobalOutlined />}
+              onClick={() => navigate('/')}
+              style={{ borderRadius: 6 }}
+            >
+              Cổng Khách Hàng
+            </Button>
+
             <Input
               placeholder="Tìm mã phiếu hoặc số điện thoại..."
               prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-              style={{ width: 320, borderRadius: '20px', padding: '8px 16px', background: '#f5f5f5', border: 'none' }}
+              style={{ width: 280, borderRadius: '20px', padding: '8px 16px', background: '#f5f5f5', border: 'none' }}
             />
             <Badge dot color="red">
               <BellOutlined style={{ fontSize: '20px', color: '#595959', cursor: 'pointer', display: 'block' }} />
