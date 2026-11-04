@@ -35,6 +35,8 @@ client.interceptors.response.use(
 );
 
 export const api = {
+  taoKhoV3: async (payload) =>
+    (await client.post('/v3/kho', payload)).data,
   // Auth
   login: async (username, password) => {
     const res = await client.post('/auth/login', { username, password });
@@ -88,14 +90,72 @@ export const api = {
     const res = await client.get('/dich-vu');
     return res.data;
   },
+  taoDichVu: async (payload) => (await client.post('/dich-vu', payload)).data,
+  capNhatDichVu: async (id, payload) => (await client.put(`/dich-vu/${id}`, payload)).data,
+  xoaDichVu: async (id) => (await client.delete(`/dich-vu/${id}`)).data,
   getNhaCungCap: async (params) => {
     const res = await client.get('/nha-cung-cap', { params });
     return res.data;
   },
+  taoNhaCungCap: async (payload) => (await client.post('/nha-cung-cap', payload)).data,
   getLinhKien: async (params) => {
     const res = await client.get('/linh-kien', { params });
     return res.data;
   },
+  getLoaiLinhKienV3: async () => (await client.get('/v3/loai-linh-kien')).data,
+  taoLoaiLinhKienV3: async (payload) => (await client.post('/v3/loai-linh-kien', payload)).data,
+  taoThuocTinhLinhKienV3: async (loaiId, payload) =>
+    (await client.post(`/v3/loai-linh-kien/${loaiId}/thuoc-tinh`, payload)).data,
+  taoLuaChonLinhKienV3: async (thuocTinhId, payload) =>
+    (await client.post(`/v3/loai-linh-kien/thuoc-tinh/${thuocTinhId}/lua-chon`, payload)).data,
+  taoMauLinhKienV3: async (payload) => (await client.post('/v3/mau-linh-kien', payload)).data,
+  getMauLinhKienV3: async (id) => (await client.get(`/v3/mau-linh-kien/${id}`)).data,
+  getYeuCauVatTuV3: async (phieuId) =>
+    (await client.get(`/v3/phieu-sua-chua/${phieuId}/vat-tu/yeu-cau`)).data,
+  taoYeuCauVatTuV3: async (phieuId, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/vat-tu/yeu-cau`, payload)).data,
+  duyetYeuCauVatTuV3: async (phieuId, id, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/vat-tu/yeu-cau/${id}/duyet`, payload)).data,
+  traVatTuV3: async (phieuId, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/vat-tu/tra-kho`, payload)).data,
+  getBaoGiaV3: async (phieuId) =>
+    (await client.get(`/v3/phieu-sua-chua/${phieuId}/bao-gia`)).data,
+  getDichVuPhieuV3: async (phieuId) =>
+    (await client.get(`/v3/phieu-sua-chua/${phieuId}/dich-vu`)).data,
+  themDichVuPhieuV3: async (phieuId, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/dich-vu`, payload)).data,
+  taoBaoGiaV3: async (phieuId, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/bao-gia`, payload)).data,
+  guiBaoGiaV3: async (phieuId, id) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/bao-gia/${id}/gui`)).data,
+  phanHoiBaoGiaV3: async (phieuId, id, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/bao-gia/${id}/phan-hoi`, payload)).data,
+  getTaiChinhV3: async (phieuId) =>
+    (await client.get(`/v3/phieu-sua-chua/${phieuId}/tai-chinh`)).data,
+  lapHoaDonV3: async (phieuId, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/hoa-don`, payload)).data,
+  ghiGiaoDichV3: async (phieuId, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/giao-dich`, payload)).data,
+  banGiaoV3: async (phieuId, payload) =>
+    (await client.post(`/v3/phieu-sua-chua/${phieuId}/ban-giao`, payload)).data,
+  getBaoHanhKhachV3: async (params) =>
+    (await client.get('/v3/bao-hanh/khach', { params })).data,
+  getCamKetBaoHanhV3: async (phieuId) =>
+    (await client.get(`/v3/bao-hanh/cam-ket/${phieuId}`)).data,
+  taoCamKetBaoHanhV3: async (payload) =>
+    (await client.post('/v3/bao-hanh/cam-ket', payload)).data,
+  doiTrangThaiBaoHanhKhachV3: async (id, payload) =>
+    (await client.post(`/v3/bao-hanh/khach/${id}/trang-thai`, payload)).data,
+  taoBaoHanhKhachV3: async (payload) =>
+    (await client.post('/v3/bao-hanh/khach', payload)).data,
+  getBaoHanhNccV3: async (params) =>
+    (await client.get('/v3/bao-hanh/nha-cung-cap', { params })).data,
+  taoBaoHanhNccV3: async (payload) =>
+    (await client.post('/v3/bao-hanh/nha-cung-cap', payload)).data,
+  guiBaoHanhNccV3: async (id) =>
+    (await client.post(`/v3/bao-hanh/nha-cung-cap/${id}/gui`)).data,
+  nhanLaiBaoHanhNccV3: async (id, payload) =>
+    (await client.post(`/v3/bao-hanh/nha-cung-cap/${id}/nhan-lai`, payload)).data,
 
   // Kho & Tồn kho (Giai đoạn 1)
   getKho: async () => {

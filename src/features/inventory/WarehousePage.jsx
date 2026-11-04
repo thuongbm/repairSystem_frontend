@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Tabs,
@@ -45,13 +45,22 @@ import {
   SnippetsOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { api } from '../services/api';
+import { api } from '../../services/api';
+import { useAuth } from '../../context/useAuth';
+import MauLinhKienModal from './MauLinhKienModal';
+import BaoHanhNccTab from './BaoHanhNccTab';
 
 const { Option } = Select;
 const { Text, Title } = Typography;
+const errorText = (error) => error.response?.data?.message || error.message || 'Thao tác thất bại.';
 
-const Warehouse = () => {
+const WarehousePage = () => {
+  const { user } = useAuth();
   const [form] = Form.useForm();
+  const [khoForm] = Form.useForm();
+  const [isKhoModalVisible, setIsKhoModalVisible] = useState(false);
+  const [nccForm] = Form.useForm();
+  const [isNccModalVisible, setIsNccModalVisible] = useState(false);
   const [minStockForm] = Form.useForm();
 
   // --- Active Tab ---
@@ -83,6 +92,8 @@ const Warehouse = () => {
 
   // --- Modal States ---
   const [isImportModalVisible, setIsImportModalVisible] = useState(false);
+  const [isMauModalVisible, setIsMauModalVisible] = useState(false);
+  const [partPolicies, setPartPolicies] = useState({});
   const [selectedPhieuDetail, setSelectedPhieuDetail] = useState(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -109,6 +120,8 @@ const Warehouse = () => {
   const [exportQty, setExportQty] = useState(1);
   const [exportSerials, setExportSerials] = useState([]);
   const [exportSerialIds, setExportSerialIds] = useState([]);
+  const [exportRequests, setExportRequests] = useState([]);
+  const [exportRequestDetailId, setExportRequestDetailId] = useState(null);
   const [loadingExportStock, setLoadingExportStock] = useState(false);
   const [loadingExportSerials, setLoadingExportSerials] = useState(false);
   const [submittingExport, setSubmittingExport] = useState(false);
@@ -127,13 +140,6 @@ const Warehouse = () => {
   const [quickSerialSearching, setQuickSerialSearching] = useState(false);
   const [quickSerialResult, setQuickSerialResult] = useState(null);
   const [quickSerialError, setQuickSerialError] = useState('');
-
-  // --- Mock data giữ nguyên cho Bảo hành NCC ---
-
-  const [warrantyData] = useState([
-    { key: '1', partName: 'Card màn hình RTX 3060 6GB', serial: 'SN30609823', error: 'Chập cháy mảng nguồn', supplier: 'Mai Hoàng PC', sendDate: '20/10/2023', status: 'Đang xử lý tại hãng' },
-    { key: '2', partName: 'Ổ cứng SSD 512GB NVMe PCIe', serial: 'SNSSD512999', error: 'Không nhận ổ', supplier: 'Công ty TNHH TLC', sendDate: '15/10/2023', status: 'Đã đổi trả mới' },
-  ]);
 
   // ==========================================
   // FETCH API FUNCTIONS
@@ -284,12 +290,15 @@ const Warehouse = () => {
 
   // Khởi chạy khi component mount
   useEffect(() => {
-    fetchTonKho();
-    fetchCanhBao();
-    fetchPhieuNhap();
-    fetchMetaCatalogs();
-    fetchAllSerials();
-    fetchTickets();
+    const timer = setTimeout(() => {
+      fetchTonKho();
+      fetchCanhBao();
+      fetchPhieuNhap();
+      fetchMetaCatalogs();
+      fetchAllSerials();
+      fetchTickets();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchTonKho, fetchCanhBao, fetchPhieuNhap, fetchMetaCatalogs, fetchAllSerials, fetchTickets]);
 
   // ==========================================
@@ -319,6 +328,15 @@ const Warehouse = () => {
     });
 
     setIsImportModalVisible(true);
+    if (defaultPartId) loadPartPolicy(defaultPartId);
+  };
+
+  const loadPartPolicy = async (id) => {
+    if (!id || partPolicies[id] !== undefined) return;
+    try {
+      const result = await api.getMauLinhKienV3(id);
+      setPartPolicies((prev) => ({ ...prev, [id]: result.data?.theoDoiSerial }));
+    } catch (error) { console.error('Không đọc được chính sách serial:', error); }
   };
 
   // Mở modal dán nhanh danh sách serial từ NCC
@@ -365,11 +383,28 @@ const Warehouse = () => {
       return;
     }
 
-    // Validate khớp số lượng serial nếu có nhập
+    // Chính sách serial của mẫu hàng quyết định có bắt buộc nhập serial hay không.
     for (let i = 0; i < values.chiTiet.length; i++) {
       const item = values.chiTiet[i];
       const serials = item.danhSachSerial || [];
       const qty = Number(item.soLuongNhap || 0);
+      let policy = partPolicies[item.linhKienId];
+      if (policy === undefined) {
+        try { policy = (await api.getMauLinhKienV3(item.linhKienId)).data?.theoDoiSerial; }
+        catch (error) { message.error(errorText(error)); return; }
+      }
+      if (policy === true && serials.length !== qty) {
+        message.error(`Dòng ${i + 1}: mẫu này cần đúng ${qty} serial.`);
+        return;
+      }
+      if (policy === false && serials.length > 0) {
+        message.error(`Dòng ${i + 1}: mẫu này quản lý theo số lượng, không nhập serial.`);
+        return;
+      }
+      if (policy == null) {
+        message.error(`Dòng ${i + 1}: mẫu linh kiện chưa có chính sách serial.`);
+        return;
+      }
       if (serials.length > 0 && serials.length !== qty) {
         const part = linhKienList.find((l) => l.id === Number(item.linhKienId));
         const partName = part ? part.tenLinhKien : `Dòng thứ ${i + 1}`;
@@ -552,9 +587,32 @@ const Warehouse = () => {
     setExportQty(1);
     setExportSerials([]);
     setExportSerialIds([]);
+    setExportRequestDetailId(null);
+    setExportRequests([]);
     setIsExportModalVisible(true);
     loadExportStock(defaultKhoId);
     loadExportedLines(ticket.id);
+    loadExportRequests(ticket.id);
+  };
+
+  const loadExportRequests = async (ticketId) => {
+    try {
+      const result = await api.getYeuCauVatTuV3(ticketId);
+      setExportRequests(result.data || []);
+    } catch (error) { message.error(errorText(error)); }
+  };
+
+  const approveExportRequest = async (request) => {
+    try {
+      await api.duyetYeuCauVatTuV3(exportTicket.id, request.id, {
+        quyetDinh: 'DA_DUYET',
+        soLuongDuyet: request.chiTiet.map((line) => ({
+          chiTietId: line.id, soLuong: line.soLuongYeuCau,
+        })),
+      });
+      message.success('Đã duyệt yêu cầu vật tư.');
+      loadExportRequests(exportTicket.id);
+    } catch (error) { message.error(errorText(error)); }
   };
 
   const handleCloseExportModal = () => {
@@ -565,6 +623,8 @@ const Warehouse = () => {
     setExportLinhKienId(null);
     setExportSerials([]);
     setExportSerialIds([]);
+    setExportRequestDetailId(null);
+    setExportRequests([]);
   };
 
   const handleChangeExportKho = (khoId) => {
@@ -578,6 +638,7 @@ const Warehouse = () => {
 
   const handleChangeExportLinhKien = (linhKienId) => {
     setExportLinhKienId(linhKienId);
+    setExportRequestDetailId(null);
     setExportQty(1);
     loadExportSerials(exportKhoId, linhKienId);
   };
@@ -585,6 +646,10 @@ const Warehouse = () => {
   const handleConfirmExport = async () => {
     if (!exportTicket || !exportKhoId || !exportLinhKienId) {
       message.warning('Vui lòng chọn kho và linh kiện cần xuất!');
+      return;
+    }
+    if (!exportRequestDetailId) {
+      message.warning('Chọn dòng yêu cầu vật tư đã được duyệt trước khi xuất.');
       return;
     }
 
@@ -602,6 +667,7 @@ const Warehouse = () => {
         linhKienId: exportLinhKienId,
         soLuong: tracked ? exportSerialIds.length : exportQty,
         linhKienSerialIds: tracked ? exportSerialIds : null,
+        yeuCauChiTietId: exportRequestDetailId,
       });
       message.success(res?.message || 'Xuất kho thành công!');
       handleCloseExportModal();
@@ -1052,21 +1118,6 @@ const Warehouse = () => {
     },
   ];
 
-  // 5. Cột bảng Quản lý bảo hành NCC
-  const warrantyColumns = [
-    { title: 'Tên linh kiện', dataIndex: 'partName', key: 'partName' },
-    { title: 'Serial', dataIndex: 'serial', key: 'serial' },
-    { title: 'Lỗi', dataIndex: 'error', key: 'error', render: (text) => <span style={{ color: 'red' }}>{text}</span> },
-    { title: 'Nhà cung cấp bảo hành', dataIndex: 'supplier', key: 'supplier' },
-    { title: 'Ngày gửi', dataIndex: 'sendDate', key: 'sendDate' },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      render: (text) => <Tag color={text === 'Đã đổi trả mới' ? 'success' : 'processing'}>{text}</Tag>,
-    },
-  ];
-
   // 6. Lọc và cột bảng Quản lý & Tra cứu Serial
   const filteredSerials = allSerialsList.filter((item) => {
     if (!serialSearchKeyword.trim()) return true;
@@ -1196,6 +1247,14 @@ const Warehouse = () => {
             Tra cứu mã Serial
           </Button>
           <Button
+            icon={<AppstoreOutlined />}
+            onClick={() => setIsMauModalVisible(true)}
+          >
+            Tạo mẫu linh kiện
+          </Button>
+          {user?.role === 'admin' && <Button onClick={() => setIsKhoModalVisible(true)}>Tạo kho</Button>}
+          {user?.role === 'admin' && <Button onClick={() => setIsNccModalVisible(true)}>Tạo nhà cung cấp</Button>}
+          <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => handleOpenImportModal()}
@@ -1205,6 +1264,45 @@ const Warehouse = () => {
           </Button>
         </Space>
       </div>
+
+      <Modal title="Tạo kho mới" open={isKhoModalVisible}
+        onCancel={() => setIsKhoModalVisible(false)}
+        onOk={() => khoForm.submit()} okText="Tạo kho" destroyOnHidden>
+        <Form form={khoForm} layout="vertical" onFinish={async (values) => {
+          try {
+            await api.taoKhoV3(values);
+            message.success('Đã tạo kho.');
+            khoForm.resetFields();
+            setIsKhoModalVisible(false);
+            const res = await api.getKho();
+            setKhoList(res.data || []);
+          } catch (error) { message.error(errorText(error)); }
+        }}>
+          <Form.Item name="tenKho" label="Tên kho" rules={[{ required: true }]}>
+            <Input maxLength={100} />
+          </Form.Item>
+          <Form.Item name="diaDiem" label="Địa điểm"><Input maxLength={255} /></Form.Item>
+        </Form>
+      </Modal>
+      <Modal title="Tạo nhà cung cấp" open={isNccModalVisible}
+        onCancel={() => setIsNccModalVisible(false)}
+        onOk={() => nccForm.submit()} okText="Lưu" destroyOnHidden>
+        <Form form={nccForm} layout="vertical" onFinish={async (values) => {
+          try {
+            await api.taoNhaCungCap(values);
+            message.success('Đã tạo nhà cung cấp.');
+            nccForm.resetFields(); setIsNccModalVisible(false);
+            const res = await api.getNhaCungCap();
+            setNccList(res.data || []);
+          } catch (error) { message.error(errorText(error)); }
+        }}>
+          <Form.Item name="tenNcc" label="Tên nhà cung cấp" rules={[{ required: true }]}><Input maxLength={150} /></Form.Item>
+          <Form.Item name="soDienThoai" label="Số điện thoại"><Input maxLength={20} /></Form.Item>
+          <Form.Item name="maSoThue" label="Mã số thuế"><Input maxLength={20} /></Form.Item>
+          <Form.Item name="email" label="Email"><Input maxLength={255} /></Form.Item>
+          <Form.Item name="diaChi" label="Địa chỉ"><Input maxLength={255} /></Form.Item>
+        </Form>
+      </Modal>
 
       {/* Thống kê chỉ số kho */}
       <Row gutter={[16, 16]}>
@@ -1506,7 +1604,7 @@ const Warehouse = () => {
             {
               key: 'warranty',
               label: 'Quản lý Bảo hành NCC',
-              children: <Table columns={warrantyColumns} dataSource={warrantyData} pagination={{ pageSize: 5 }} />,
+              children: <BaoHanhNccTab />,
             },
 
             // TAB 6: TRA CỨU & QUẢN LÝ SERIAL LINH KIỆN
@@ -1602,6 +1700,15 @@ const Warehouse = () => {
         />
       </Card>
 
+      <MauLinhKienModal
+        open={isMauModalVisible}
+        onClose={() => setIsMauModalVisible(false)}
+        onCreated={(id) => {
+          fetchMetaCatalogs();
+          if (id) handleOpenImportModal(id, 1);
+        }}
+      />
+
       {/* ======================================================== */}
       {/* MODAL: LẬP PHIẾU NHẬP KHO (POST /api/phieu-nhap/tao-moi)  */}
       {/* ======================================================== */}
@@ -1696,6 +1803,7 @@ const Warehouse = () => {
                             <Select
                               placeholder="Chọn linh kiện..."
                               showSearch
+                              onChange={loadPartPolicy}
                               optionFilterProp="children"
                               filterOption={(input, option) =>
                                 (option?.children || '').toLowerCase().includes(input.toLowerCase())
@@ -1788,11 +1896,17 @@ const Warehouse = () => {
                         <Form.Item shouldUpdate noStyle>
                           {() => {
                             const currentQty = form.getFieldValue(['chiTiet', name, 'soLuongNhap']) || 0;
+                            const currentPartId = form.getFieldValue(['chiTiet', name, 'linhKienId']);
+                            const policy = partPolicies[currentPartId];
                             const serials = form.getFieldValue(['chiTiet', name, 'danhSachSerial']) || [];
                             if (serials.length === 0) {
                               return (
-                                <Text type="secondary" style={{ fontSize: '11px' }}>
-                                  ℹ️ Để trống = nhập theo số lượng tổng (không theo dõi riêng từng serial).
+                                <Text type={policy === true ? 'danger' : 'secondary'} style={{ fontSize: '11px' }}>
+                                  {policy === true
+                                    ? `Mẫu này bắt buộc nhập đủ ${currentQty} serial trước khi xác nhận.`
+                                    : policy === false
+                                      ? 'Mẫu này quản lý theo số lượng, không cần serial.'
+                                      : 'Chọn mẫu linh kiện để xem chính sách serial.'}
                                 </Text>
                               );
                             }
@@ -2189,6 +2303,33 @@ const Warehouse = () => {
                 )}
               </div>
 
+              <div>
+                <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                  Yêu cầu vật tư đã duyệt cho linh kiện này: <span style={{ color: 'red' }}>*</span>
+                </label>
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Chọn dòng yêu cầu đã duyệt"
+                  value={exportRequestDetailId}
+                  onChange={setExportRequestDetailId}
+                  disabled={!exportLinhKienId}
+                  options={exportRequests.filter((r) => r.trangThai === 'DA_DUYET')
+                    .flatMap((r) => (r.chiTiet || [])
+                      .filter((line) => line.linhKienId === exportLinhKienId && line.soLuongDuyet > 0)
+                      .map((line) => ({ value: line.id,
+                        label: `Yêu cầu #${r.id} — đã duyệt ${line.soLuongDuyet} chiếc` })))}
+                />
+                {exportRequests.filter((r) => r.trangThai === 'CHO_DUYET').map((r) => (
+                  <Alert key={r.id} type="warning" style={{ marginTop: 8 }}
+                    message={`Yêu cầu #${r.id} đang chờ duyệt`}
+                    action={<Button size="small" onClick={() => approveExportRequest(r)}>Duyệt toàn bộ</Button>}
+                  />
+                ))}
+                {exportRequests.length === 0 && <Text type="secondary" style={{ fontSize: 12 }}>
+                  Kỹ thuật viên cần tạo yêu cầu vật tư trên màn hình kỹ thuật trước khi kho xuất.
+                </Text>}
+              </div>
+
               {/* 3. Lựa chọn Serial hoặc Số lượng */}
               {exportLinhKienId && (
                 <div>
@@ -2466,4 +2607,4 @@ const Warehouse = () => {
   );
 };
 
-export default Warehouse;
+export default WarehousePage;

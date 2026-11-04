@@ -1,0 +1,323 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber,
+  Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import dayjs from 'dayjs';
+import IntakeModal from './IntakeModal';
+import { useAuth } from '../../context/useAuth';
+import { api } from '../../services/api';
+
+const { Title, Text } = Typography;
+const money = (n) => `${Number(n || 0).toLocaleString('vi-VN')} ₫`;
+const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
+const warrantyNext = {
+  TIEP_NHAN: ['DANG_KIEM_TRA'], DANG_KIEM_TRA: ['CHAP_NHAN', 'TU_CHOI'],
+  CHAP_NHAN: ['DANG_XU_LY'], DANG_XU_LY: ['HOAN_THANH'], HOAN_THANH: ['DA_TRA'],
+};
+
+export default function ReceptionPage() {
+  const { user } = useAuth();
+  const [tickets, setTickets] = useState([]);
+  const [services, setServices] = useState([]);
+  const [parts, setParts] = useState([]);
+  const [receptionists, setReceptionists] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [intakeOpen, setIntakeOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState('');
+  const [quotes, setQuotes] = useState([]);
+  const [serviceLines, setServiceLines] = useState([]);
+  const [exports, setExports] = useState([]);
+  const [finance, setFinance] = useState(null);
+  const [commitments, setCommitments] = useState([]);
+  const [claims, setClaims] = useState([]);
+  const [quoteLines, setQuoteLines] = useState([]);
+  const [quoteLineForm] = Form.useForm();
+  const [quoteForm] = Form.useForm();
+  const [invoiceForm] = Form.useForm();
+  const [paymentForm] = Form.useForm();
+  const [handoverForm] = Form.useForm();
+  const [commitmentForm] = Form.useForm();
+  const [claimForm] = Form.useForm();
+  const [statusForm] = Form.useForm();
+
+  const loadTickets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const list = (await api.getPhieuSuaChua()).data || [];
+      setTickets(list);
+      setSelected((current) => current ? list.find((x) => x.id === current.id) || current : null);
+    }
+    catch (e) { message.error(errorText(e)); }
+    finally { setLoading(false); }
+  }, []);
+
+  const loadDetail = useCallback(async (id) => {
+    try {
+      const [q, s, x, f, c, w] = await Promise.all([
+        api.getBaoGiaV3(id), api.getDichVuPhieuV3(id), api.getXuatKhoPhieu(id),
+        api.getTaiChinhV3(id), api.getCamKetBaoHanhV3(id),
+        api.getBaoHanhKhachV3({ phieuGocId: id }),
+      ]);
+      setQuotes(q.data || []); setServiceLines(s.data || []); setExports(x.data || []);
+      setFinance(f.data); setCommitments(c.data || []); setClaims(w.data || []);
+    } catch (e) { message.error(errorText(e)); }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([api.getPhieuSuaChua(), api.getDichVu(), api.getLinhKien(),
+      user?.role === 'admin' ? api.getNhanVien({ chucVu: 'LE_TAN' }) : Promise.resolve({ data: [] })])
+      .then(([t, s, p, r]) => {
+        if (!active) return;
+        setTickets(t.data || []); setServices(s.data || []);
+        setParts(p.data || []); setReceptionists(r.data || []);
+      })
+      .catch((e) => message.error(errorText(e)));
+    return () => { active = false; };
+  }, [user?.role]);
+
+  const perform = async (action, success) => {
+    setBusy(true);
+    try {
+      await action();
+      message.success(success);
+      if (selected?.id) await loadDetail(selected.id);
+      await loadTickets();
+    } catch (e) { message.error(errorText(e)); }
+    finally { setBusy(false); }
+  };
+
+  const choices = [
+    ...services.map((x) => ({ value: `D:${x.id}`, label: `Dịch vụ: ${x.tenDichVu}`,
+      name: x.tenDichVu, price: x.giaNiemYet })),
+    ...parts.map((x) => ({ value: `L:${x.id}`, label: `Linh kiện: ${x.tenLinhKien}`,
+      name: x.tenLinhKien, price: x.donGiaBan })),
+  ];
+
+  const addQuoteLine = (values) => {
+    const choice = choices.find((x) => x.value === values.itemKey);
+    if (!choice) return;
+    setQuoteLines((old) => [...old, {
+      loai: values.itemKey.startsWith('D:') ? 'DICH_VU' : 'LINH_KIEN',
+      dichVuId: values.itemKey.startsWith('D:') ? Number(values.itemKey.slice(2)) : null,
+      linhKienId: values.itemKey.startsWith('L:') ? Number(values.itemKey.slice(2)) : null,
+      tenHangMuc: choice.name, soLuong: values.soLuong, donGia: values.donGia,
+    }]);
+    quoteLineForm.resetFields(['itemKey', 'donGia']);
+  };
+
+  const quoteTab = <Space direction="vertical" style={{ width: '100%' }}>
+    <Card size="small" title="Tạo báo giá mới">
+      <Form form={quoteLineForm} layout="inline" onFinish={addQuoteLine}
+        initialValues={{ soLuong: 1 }} style={{ gap: 8 }}>
+        <Form.Item name="itemKey" rules={[{ required: true }]}>
+          <Select showSearch optionFilterProp="label" placeholder="Dịch vụ / linh kiện"
+            style={{ width: 280 }} options={choices}
+            onChange={(v) => quoteLineForm.setFieldValue('donGia', choices.find((x) => x.value === v)?.price)} />
+        </Form.Item>
+        <Form.Item name="soLuong" rules={[{ required: true }]}><InputNumber min={1} /></Form.Item>
+        <Form.Item name="donGia" rules={[{ required: true }]}>
+          <InputNumber min={0} style={{ width: 160 }} placeholder="Đơn giá" />
+        </Form.Item>
+        <Button htmlType="submit">Thêm dòng</Button>
+      </Form>
+      <Table size="small" style={{ marginTop: 12 }} dataSource={quoteLines}
+        rowKey={(_, i) => String(i)} pagination={false} columns={[
+          { title: 'Hạng mục', dataIndex: 'tenHangMuc' },
+          { title: 'Số lượng', dataIndex: 'soLuong' },
+          { title: 'Đơn giá', dataIndex: 'donGia', render: money },
+          { title: '', render: (_, line) => <Button size="small" danger
+            onClick={() => setQuoteLines((old) => old.filter((x) => x !== line))}>Bỏ</Button> },
+        ]} />
+      <Form form={quoteForm} layout="inline" onFinish={(v) => perform(async () => {
+        await api.taoBaoGiaV3(selected.id, { giamGia: v.giamGia || 0, chiTiet: quoteLines });
+        setQuoteLines([]); quoteForm.resetFields();
+      }, 'Đã lưu báo giá nháp.')} initialValues={{ giamGia: 0 }} style={{ marginTop: 12 }}>
+        <Form.Item name="giamGia" label="Giảm giá"><InputNumber min={0} /></Form.Item>
+        <Button type="primary" htmlType="submit" disabled={!quoteLines.length} loading={busy}>Lưu báo giá</Button>
+      </Form>
+    </Card>
+    {quotes.map((q) => <Card key={q.id} size="small"
+      title={`Báo giá #${q.phienBan} — ${q.trangThai} — ${money(q.tongSauGiam)}`}
+      extra={<Space>
+        {q.trangThai === 'NHAP' && <Popconfirm title="Gửi báo giá cho khách?"
+          onConfirm={() => perform(() => api.guiBaoGiaV3(selected.id, q.id), 'Đã chuyển sang chờ khách phản hồi.')}>
+          <Button size="small">Đã gửi khách</Button></Popconfirm>}
+        {q.trangThai === 'CHO_DUYET' && <>
+          <Button size="small" type="primary" onClick={() => perform(() =>
+            api.phanHoiBaoGiaV3(selected.id, q.id, { quyetDinh: 'DA_DUYET',
+              kenhPhanHoi: 'TRUC_TIEP', noiDungPhanHoi: 'Khách xác nhận tại cửa hàng' }), 'Đã ghi nhận khách đồng ý.')}>Khách đồng ý</Button>
+          <Button size="small" danger onClick={() => perform(() =>
+            api.phanHoiBaoGiaV3(selected.id, q.id, { quyetDinh: 'TU_CHOI',
+              kenhPhanHoi: 'TRUC_TIEP', noiDungPhanHoi: 'Khách không đồng ý' }), 'Đã ghi nhận khách từ chối.')}>Khách từ chối</Button>
+        </>}
+      </Space>}>
+      <Table size="small" dataSource={q.chiTiet || []} rowKey="id" pagination={false} columns={[
+        { title: 'Hạng mục', dataIndex: 'tenHangMuc' },
+        { title: 'Số lượng', dataIndex: 'soLuong' },
+        { title: 'Đơn giá', dataIndex: 'donGia', render: money },
+        { title: 'Thành tiền', dataIndex: 'thanhTien', render: money },
+        { title: '', render: (_, line) => q.trangThai === 'DA_DUYET' && line.loai === 'DICH_VU'
+          && !serviceLines.some((x) => x.dichVuId === line.dichVuId)
+          ? <Button size="small" onClick={() => perform(() => api.themDichVuPhieuV3(selected.id,
+            { dichVuId: line.dichVuId, soLuong: line.soLuong }), 'Đã ghi dịch vụ vào phiếu.')}>Ghi dịch vụ</Button> : null },
+      ]} />
+    </Card>)}
+  </Space>;
+
+  const financeTab = <Space direction="vertical" style={{ width: '100%' }}>
+    <Alert type="info" showIcon message={`Đã thu ròng: ${money(finance?.daThuRong)} · Còn nợ: ${finance?.conNo == null ? 'Chưa lập hóa đơn' : money(finance.conNo)}`} />
+    <Card size="small" title="Dịch vụ và vật tư đã ghi">
+      <Text>Dịch vụ: {serviceLines.map((x) => `${x.tenDichVu} × ${x.soLuong}`).join(', ') || 'Chưa có'}</Text><br />
+      <Text>Vật tư xuất: {exports.length} dòng</Text>
+    </Card>
+    {!finance?.hoaDon && <Card size="small" title="Lập hóa đơn">
+      <Form form={invoiceForm} layout="inline" onFinish={(v) => perform(() =>
+        api.lapHoaDonV3(selected.id, { giamGia: v.giamGia || 0,
+          leTanId: user?.role === 'admin' ? v.leTanId : null }), 'Đã lập hóa đơn.')}
+      initialValues={{ giamGia: 0 }} style={{ gap: 8 }}>
+        <Form.Item name="giamGia" label="Giảm giá"><InputNumber min={0} /></Form.Item>
+        {user?.role === 'admin' && <Form.Item name="leTanId" label="Lễ tân" rules={[{ required: true }]}>
+          <Select style={{ width: 180 }} options={receptionists.map((x) => ({ value: x.id, label: x.hoTen }))} />
+        </Form.Item>}
+        <Button type="primary" htmlType="submit" loading={busy}>Lập hóa đơn</Button>
+      </Form>
+    </Card>}
+    {finance?.hoaDon && <Card size="small" title={`Hóa đơn ${finance.hoaDon.maHd} — ${money(finance.hoaDon.tongThanhToan)}`}>
+      <Table size="small" dataSource={finance.hoaDon.chiTiet || []} rowKey="id" pagination={false} columns={[
+        { title: 'Hạng mục', dataIndex: 'tenHangMuc' }, { title: 'SL', dataIndex: 'soLuong' },
+        { title: 'Thành tiền', dataIndex: 'thanhTien', render: money },
+      ]} />
+    </Card>}
+    <Card size="small" title="Ghi nhận thu / hoàn tiền">
+      <Form form={paymentForm} layout="inline" onFinish={(v) => perform(async () => {
+        await api.ghiGiaoDichV3(selected.id, { ...v, hoaDonId: finance?.hoaDon?.id || null });
+        paymentForm.resetFields(['soTien', 'maThamChieu', 'ghiChu']);
+      }, 'Đã ghi giao dịch.')} initialValues={{ loai: 'THU', phuongThuc: 'TIEN_MAT' }} style={{ gap: 8 }}>
+        <Form.Item name="loai"><Select style={{ width: 100 }} options={[{ value: 'THU', label: 'Thu' }, { value: 'HOAN', label: 'Hoàn' }]} /></Form.Item>
+        <Form.Item name="soTien" rules={[{ required: true }]}><InputNumber min={1} placeholder="Số tiền" /></Form.Item>
+        <Form.Item name="phuongThuc"><Select style={{ width: 160 }} options={[
+          { value: 'TIEN_MAT', label: 'Tiền mặt' }, { value: 'CHUYEN_KHOAN', label: 'Chuyển khoản' },
+          { value: 'THE', label: 'Thẻ' }, { value: 'VI_DIEN_TU', label: 'Ví điện tử' },
+        ]} /></Form.Item>
+        <Form.Item name="maThamChieu"><Input placeholder="Mã tham chiếu" maxLength={100} /></Form.Item>
+        <Button htmlType="submit" loading={busy}>Ghi giao dịch</Button>
+      </Form>
+      <Table size="small" style={{ marginTop: 12 }} dataSource={finance?.giaoDich || []} rowKey="id" pagination={false} columns={[
+        { title: 'Thời gian', dataIndex: 'thoiGian', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
+        { title: 'Loại', dataIndex: 'loai' }, { title: 'Số tiền', dataIndex: 'soTien', render: money },
+        { title: 'Phương thức', dataIndex: 'phuongThuc' }, { title: 'Tham chiếu', dataIndex: 'maThamChieu' },
+      ]} />
+    </Card>
+    {!finance?.banGiao && <Card size="small" title="Bàn giao thiết bị">
+      <Form form={handoverForm} layout="vertical" onFinish={(v) => perform(() =>
+        api.banGiaoV3(selected.id, v), 'Đã bàn giao thiết bị.')}>
+        <Form.Item name="tenNguoiNhan" label="Người nhận" rules={[{ required: true }]}><Input maxLength={150} /></Form.Item>
+        <Form.Item name="tinhTrangMay" label="Tình trạng máy"><Input.TextArea maxLength={1000} /></Form.Item>
+        <Form.Item name="phuKienDaTra" label="Phụ kiện đã trả"><Input maxLength={1000} /></Form.Item>
+        <Form.Item name="xacNhan" label="Xác nhận của khách"><Input maxLength={1000} /></Form.Item>
+        {user?.role === 'admin' && <Form.Item name="lyDoConNo" label="Lý do bàn giao còn nợ (nếu có)"><Input maxLength={500} /></Form.Item>}
+        <Button type="primary" htmlType="submit" loading={busy}>Xác nhận bàn giao</Button>
+      </Form>
+    </Card>}
+    {finance?.banGiao && <Tag color="green">Đã bàn giao cho {finance.banGiao.tenNguoiNhan}</Tag>}
+  </Space>;
+
+  const warrantyTab = <Space direction="vertical" style={{ width: '100%' }}>
+    <Card size="small" title="Cam kết bảo hành sau bàn giao">
+      <Form form={commitmentForm} layout="inline" onFinish={(v) => perform(async () => {
+        await api.taoCamKetBaoHanhV3({ phieuGocId: selected.id, loai: v.kind === 'service' ? 'DICH_VU' : 'LINH_KIEN',
+          dichVuId: v.kind === 'service' ? v.itemId : null,
+          chiTietXuatKhoId: v.kind === 'part' ? v.itemId : null,
+          ngayBatDau: v.dates[0].format('YYYY-MM-DD'), ngayKetThuc: v.dates[1].format('YYYY-MM-DD'),
+          dieuKien: v.dieuKien || null });
+        commitmentForm.resetFields();
+      }, 'Đã lưu cam kết bảo hành.')} style={{ gap: 8 }}>
+        <Form.Item name="kind" rules={[{ required: true }]}><Select style={{ width: 130 }} placeholder="Loại" options={[
+          { value: 'service', label: 'Dịch vụ' }, { value: 'part', label: 'Linh kiện' },
+        ]} onChange={() => commitmentForm.setFieldValue('itemId', undefined)} /></Form.Item>
+        <Form.Item noStyle shouldUpdate={(p, c) => p.kind !== c.kind}>{({ getFieldValue }) =>
+          <Form.Item name="itemId" rules={[{ required: true }]}>
+            <Select style={{ width: 240 }} placeholder="Hạng mục" options={getFieldValue('kind') === 'service'
+              ? serviceLines.map((x) => ({ value: x.dichVuId, label: x.tenDichVu }))
+              : exports.map((x) => ({ value: x.chiTietXuatKhoId, label: x.tenLinhKien || `Dòng #${x.chiTietXuatKhoId}` }))} />
+          </Form.Item>}
+        </Form.Item>
+        <Form.Item name="dates" rules={[{ required: true }]}><DatePicker.RangePicker format="DD/MM/YYYY" /></Form.Item>
+        <Form.Item name="dieuKien"><Input placeholder="Điều kiện" maxLength={1000} /></Form.Item>
+        <Button htmlType="submit" disabled={selected?.trangThai !== 'DA_TRA'} loading={busy}>Tạo cam kết</Button>
+      </Form>
+      <Table size="small" style={{ marginTop: 12 }} dataSource={commitments} rowKey="id" pagination={false} columns={[
+        { title: 'Loại', dataIndex: 'loai' }, { title: 'Bắt đầu', dataIndex: 'ngayBatDau' },
+        { title: 'Hết hạn', dataIndex: 'ngayKetThuc' }, { title: 'Điều kiện', dataIndex: 'dieuKien' },
+      ]} />
+    </Card>
+    <Card size="small" title="Tiếp nhận khách quay lại bảo hành">
+      <Form form={claimForm} layout="inline" onFinish={(v) => perform(async () => {
+        await api.taoBaoHanhKhachV3({ phieuGocId: selected.id, camKetId: v.camKetId || null,
+          phieuSuaBaoHanhId: null, loiKhachBao: v.loiKhachBao });
+        claimForm.resetFields();
+      }, 'Đã tiếp nhận bảo hành.')} style={{ gap: 8 }}>
+        <Form.Item name="camKetId"><Select allowClear style={{ width: 220 }} placeholder="Cam kết (nếu có)"
+          options={commitments.map((x) => ({ value: x.id, label: `#${x.id} — ${x.loai}` }))} /></Form.Item>
+        <Form.Item name="loiKhachBao" rules={[{ required: true }]}><Input style={{ width: 300 }} placeholder="Lỗi khách báo" maxLength={1000} /></Form.Item>
+        <Button htmlType="submit" disabled={selected?.trangThai !== 'DA_TRA'} loading={busy}>Tiếp nhận</Button>
+      </Form>
+      <Table size="small" style={{ marginTop: 12 }} dataSource={claims} rowKey="id" pagination={{ pageSize: 5 }} columns={[
+        { title: 'Mã', dataIndex: 'id', render: (v) => `#${v}` },
+        { title: 'Lỗi khách báo', dataIndex: 'loiKhachBao' },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+      ]} />
+      <Form form={statusForm} layout="inline" onFinish={(v) => perform(() =>
+        api.doiTrangThaiBaoHanhKhachV3(v.claimId, { trangThai: v.trangThai,
+          ketLuan: v.ketLuan || null, ketQuaXuLy: v.ketQuaXuLy || null }), 'Đã cập nhật bảo hành.')}
+      style={{ gap: 8 }}>
+        <Form.Item name="claimId" rules={[{ required: true }]}><Select style={{ width: 120 }} placeholder="Phiếu BH"
+          options={claims.map((x) => ({ value: x.id, label: `#${x.id}` }))}
+          onChange={() => statusForm.setFieldValue('trangThai', undefined)} /></Form.Item>
+        <Form.Item noStyle shouldUpdate={(p, c) => p.claimId !== c.claimId}>{({ getFieldValue }) => {
+          const claim = claims.find((x) => x.id === getFieldValue('claimId'));
+          return <Form.Item name="trangThai" rules={[{ required: true }]}><Select style={{ width: 190 }} placeholder="Bước tiếp theo"
+            options={(warrantyNext[claim?.trangThai] || []).map((x) => ({ value: x, label: x }))} /></Form.Item>;
+        }}</Form.Item>
+        <Form.Item name="ketLuan"><Input placeholder="Kết luận / lý do từ chối" maxLength={1000} /></Form.Item>
+        <Form.Item name="ketQuaXuLy"><Input placeholder="Kết quả xử lý" maxLength={1000} /></Form.Item>
+        <Button htmlType="submit" loading={busy}>Cập nhật</Button>
+      </Form>
+    </Card>
+  </Space>;
+
+  return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+    <Title level={3}>Tiếp nhận, báo giá và thu ngân</Title>
+    <Alert type="info" showIcon message="Dữ liệu lấy trực tiếp từ CSDL V3" description="Tạo phiếu → báo giá và ghi dịch vụ → sửa/xuất linh kiện → lập hóa đơn → thu tiền → bàn giao → bảo hành." />
+    <Space><Input.Search placeholder="Mã phiếu, khách, thiết bị" allowClear style={{ width: 300 }}
+      value={search} onChange={(e) => setSearch(e.target.value)} />
+      <Button onClick={loadTickets}>Làm mới</Button>
+      <Button type="primary" onClick={() => setIntakeOpen(true)}>Tiếp nhận máy</Button></Space>
+    <Table loading={loading} dataSource={tickets.filter((x) =>
+      `${x.maPhieu} ${x.tenKhachHang} ${x.tenThietBi}`.toLowerCase().includes(search.toLowerCase()))}
+      rowKey="id" scroll={{ x: 850 }} pagination={{ pageSize: 10 }} columns={[
+        { title: 'Mã phiếu', dataIndex: 'maPhieu' },
+        { title: 'Khách hàng', dataIndex: 'tenKhachHang' },
+        { title: 'Thiết bị', dataIndex: 'tenThietBi' },
+        { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+        { title: '', render: (_, row) => <Button onClick={() => { setSelected(row); loadDetail(row.id); }}>Xử lý</Button> },
+      ]} />
+    <IntakeModal visible={intakeOpen} onCancel={() => setIntakeOpen(false)}
+      onSubmitTicket={(ticket) => { loadTickets(); loadDetail(ticket.id); setIntakeOpen(false);
+        setSelected({ id: ticket.id, maPhieu: ticket.code, trangThai: 'TIEP_NHAN' }); }} />
+    <Drawer open={!!selected} width="min(1100px, 100vw)" onClose={() => setSelected(null)}
+      title={`${selected?.maPhieu || ''} — ${selected?.tenKhachHang || ''}`} destroyOnHidden>
+      {selected && <Space direction="vertical" style={{ width: '100%' }}>
+        <Text>Trạng thái: <Tag>{selected.trangThai}</Tag> · {selected.tenThietBi} · {selected.soDienThoaiKhach}</Text>
+        <Tabs items={[
+          { key: 'quote', label: 'Báo giá', children: quoteTab },
+          { key: 'finance', label: 'Hóa đơn · thu tiền · bàn giao', children: financeTab },
+          { key: 'warranty', label: 'Bảo hành khách', children: warrantyTab },
+        ]} />
+      </Space>}
+    </Drawer>
+  </Space>;
+}

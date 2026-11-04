@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
+import { useAuth } from '../../context/useAuth';
 
 const COMMON_ISSUES = [
   'Mất nguồn / Không bật lên',
@@ -46,11 +47,13 @@ const ACCESSORY_OPTIONS = [
 ];
 
 const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
+  const { user } = useAuth();
   const [form] = Form.useForm();
   const [selectedIssueTags, setSelectedIssueTags] = useState([]);
   const [previewTicket, setPreviewTicket] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [technicians, setTechnicians] = useState([]);
+  const [receptionists, setReceptionists] = useState([]);
 
   // Danh sách KTV thật (kèm số ca đang làm) để phân công khi tiếp nhận
   useEffect(() => {
@@ -70,6 +73,15 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
     };
   }, [visible]);
 
+  useEffect(() => {
+    if (!visible || user?.role !== 'admin') return;
+    let active = true;
+    api.getNhanVien({ chucVu: 'LE_TAN' })
+      .then((res) => { if (active) setReceptionists(res.data || []); })
+      .catch(() => message.error('Không tải được danh sách lễ tân.'));
+    return () => { active = false; };
+  }, [visible, user?.role]);
+
   const handleToggleIssue = (issue) => {
     if (selectedIssueTags.includes(issue)) {
       setSelectedIssueTags(selectedIssueTags.filter((i) => i !== issue));
@@ -88,14 +100,11 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         .filter(Boolean)
         .join('; ');
 
-      // Ghi chú: những thông tin chưa có cột riêng trong DB (ưu tiên, dự toán, cọc) được lưu vào ghi chú phiếu
+      // Thông tin chưa có cột riêng được lưu vào ghi chú phiếu.
       const ghiChuParts = [];
       if (values.priority === 'Khẩn cấp') ghiChuParts.push('Ưu tiên: KHẨN CẤP');
       if ((values.estimatedCost || 0) > 0) {
         ghiChuParts.push(`Dự toán sơ bộ: ${Number(values.estimatedCost).toLocaleString('vi-VN')} đ`);
-      }
-      if ((values.deposit || 0) > 0) {
-        ghiChuParts.push(`Khách đã cọc: ${Number(values.deposit).toLocaleString('vi-VN')} đ`);
       }
 
       // POST /api/phieu-sua-chua (Giai đoạn 3 - Mục 3.3)
@@ -108,6 +117,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         deviceName: values.deviceName?.trim(),
         soSerial: values.serial?.trim() || null,
         kyThuatVienId: values.technician || null,
+        leTanId: user?.role === 'admin' ? values.leTanId : null,
         tinhTrangLoi: combinedIssues || 'Khách yêu cầu kiểm tra tổng quát',
         tinhTrangNgoaiQuan: values.condition?.trim() || null,
         phuKienKemTheo: values.accessories?.length > 0 ? values.accessories.join(', ') : null,
@@ -121,6 +131,18 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
       const bePhieu = res?.data;
       if (!bePhieu?.maPhieu) {
         throw new Error('Máy chủ không trả về mã phiếu. Phiếu chưa được lưu.');
+      }
+      let recordedDeposit = 0;
+      if (Number(values.deposit) > 0) {
+        try {
+          await api.ghiGiaoDichV3(bePhieu.id, {
+            hoaDonId: null, loai: 'THU', soTien: Number(values.deposit),
+            phuongThuc: 'TIEN_MAT', ghiChu: 'Cọc khi tiếp nhận'
+          });
+          recordedDeposit = Number(values.deposit);
+        } catch (depositError) {
+          message.warning(`Phiếu ${bePhieu.maPhieu} đã lưu, nhưng chưa ghi được tiền cọc: ${depositError.response?.data?.message || depositError.message}`);
+        }
       }
       const technicianName =
         technicians.find((t) => t.id === values.technician)?.hoTen || 'Chưa phân công';
@@ -152,8 +174,8 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         technician: technicianName,
         status: 'Mới tiếp nhận',
         estimatedCost: values.estimatedCost || 0,
-        deposit: values.deposit || 0,
-        paymentStatus: (values.deposit || 0) > 0 ? `Đã cọc ${(values.deposit || 0).toLocaleString('vi-VN')} ₫` : 'Chưa thanh toán',
+        deposit: recordedDeposit,
+        paymentStatus: recordedDeposit > 0 ? `Đã cọc ${recordedDeposit.toLocaleString('vi-VN')} ₫` : 'Chưa thanh toán',
         items: [],
       };
 
@@ -301,6 +323,10 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '8px' }}
           onFinish={handleFinish}
         >
+          {user?.role === 'admin' && <Form.Item name="leTanId" label="Lễ tân tiếp nhận"
+            rules={[{ required: true, message: 'Chọn lễ tân để tiếp nhận.' }]}>
+            <Select options={receptionists.map((x) => ({ value: x.id, label: x.hoTen }))} />
+          </Form.Item>}
           {/* Thông tin khách hàng */}
           <Divider orientation="left" style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#1677ff' }}>
             1. THÔNG TIN KHÁCH HÀNG

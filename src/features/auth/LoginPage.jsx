@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, Card, Typography, Layout, Alert, Divider, Space, Tag, message, Tabs } from 'antd';
+import { useState } from 'react';
+import { Form, Input, Button, Card, Typography, Layout, Alert, message, Tabs } from 'antd';
 import { UserOutlined, LockOutlined, PhoneOutlined, MailOutlined, IdcardOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
+import { useAuth } from '../../context/useAuth';
+import { api } from '../../services/api';
 
 const { Title, Text } = Typography;
 
@@ -24,15 +24,7 @@ const mapBackendRole = (vaiTro) => {
   }
 };
 
-const quickAccounts = [
-  { label: 'Admin', username: 'admin', roleTag: 'red' },
-  { label: 'Lễ tân', username: 'letan01', roleTag: 'blue' },
-  { label: 'Thủ kho', username: 'thukho01', roleTag: 'green' },
-  { label: 'Kỹ thuật viên', username: 'ktv01', roleTag: 'orange' },
-  { label: 'Khách hàng', username: 'khachhang01', roleTag: 'purple' },
-];
-
-const Login = () => {
+const LoginPage = () => {
   const [loginForm] = Form.useForm();
   const [registerForm] = Form.useForm();
   const [activeTab, setActiveTab] = useState('login');
@@ -132,15 +124,6 @@ const Login = () => {
     } finally {
       setRegisterLoading(false);
     }
-  };
-
-  const handleQuickFill = (acc) => {
-    loginForm.setFieldsValue({
-      username: acc.username,
-      password: 'Password@123',
-    });
-    setErrorMessage('');
-    setActiveTab('login');
   };
 
   return (
@@ -295,34 +278,6 @@ const Login = () => {
                       </Text>
                     </div>
 
-                    <Divider style={{ margin: '20px 0 14px', fontSize: '12px', color: '#8c8c8c' }}>
-                      Tài khoản mẫu thử nghiệm nhanh
-                    </Divider>
-
-                    <div style={{ textAlign: 'center' }}>
-                      <Space wrap size={[6, 6]} style={{ justifyContent: 'center' }}>
-                        {quickAccounts.map((acc) => (
-                          <Tag
-                            key={acc.username}
-                            color={acc.roleTag}
-                            style={{
-                              cursor: 'pointer',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              fontSize: '12px',
-                            }}
-                            onClick={() => handleQuickFill(acc)}
-                          >
-                            {acc.label}: <strong>{acc.username}</strong>
-                          </Tag>
-                        ))}
-                      </Space>
-                      <div style={{ marginTop: 6 }}>
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          💡 Nhấn vào thẻ để điền nhanh thông tin mẫu
-                        </Text>
-                      </div>
-                    </div>
                   </div>
                 ),
               },
@@ -475,4 +430,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default LoginPage;

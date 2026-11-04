@@ -45,23 +45,9 @@ npm run dev
 
 ## 📂 Cấu trúc thư mục (Project Structure)
 
-Dự án được tổ chức theo tiêu chuẩn của một ứng dụng React chuyên nghiệp giúp dễ dàng bảo trì và mở rộng:
+Các màn đang hoạt động nằm trong `src/features`, được nhóm theo nghiệp vụ: `auth`, `catalog`, `customer`, `dashboard`, `inventory`, `reception`, `repair` và `staff`. Route nằm trong `src/App.jsx`; API dùng chung nằm trong `src/services/api.js`. Các màn mẫu cũ được lưu tại `archive/legacy-ui` và không chạy trong ứng dụng hiện tại.
 
-```text
-RepairFrontend/
-├── public/              # Chứa các tài nguyên tĩnh không qua build process (favicon...)
-├── src/
-│   ├── assets/          # Hình ảnh, icon, font chữ (logo, svg...)
-│   ├── components/      # Các component dùng chung (Button, Table, Modal...)
-│   ├── context/         # Quản lý state toàn cục với Context API
-│   ├── hooks/           # Custom React Hooks
-│   ├── pages/           # Các component đóng vai trò là một trang (Home, Login...)
-│   ├── services/        # Logic gọi API backend (chứa file api.js)
-│   ├── utils/           # Các hàm tiện ích, format dữ liệu...
-│   ├── App.jsx          # Component gốc
-│   └── main.jsx         # Entry point của React
-└── package.json         # Danh sách thư viện và config của npm
-```
+Xem [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) để biết cây thư mục và vị trí cần sửa khi thêm chức năng.
 
 ---
 

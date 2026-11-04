@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Card, Row, Col, Typography, Table, Select, Switch, Avatar, Space, Tag, 
-  Button, Input, Modal, Form, message, Alert, Spin, Tooltip 
+  Button, Input, Modal, Form, message, Tooltip 
 } from 'antd';
 import { 
   CheckOutlined, 
@@ -13,7 +13,7 @@ import {
   MailOutlined,
   UserOutlined
 } from '@ant-design/icons';
-import { api } from '../services/api';
+import { api } from '../../services/api';
 
 const { Title, Text } = Typography;
 
@@ -56,9 +56,9 @@ const formatActivity = (lastLogin, updatedAt) => {
   }
 };
 
-const HR = () => {
+const StaffPage = () => {
   const [staffList, setStaffList] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -88,7 +88,20 @@ const HR = () => {
   };
 
   useEffect(() => {
-    fetchStaffData();
+    let active = true;
+    api.getNhanVien({ includeDeleted: false })
+      .then((res) => {
+        if (!active) return;
+        const data = res?.data || res || [];
+        setStaffList(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error('Lỗi khi tải danh sách nhân sự:', err);
+        message.error(err.response?.data?.message || 'Không thể tải danh sách nhân sự từ máy chủ.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   // Bật / tắt quyền truy cập của tài khoản (gọi API thật)
@@ -531,4 +544,4 @@ const UserIcon = ({ size = 14 }) => (
   </svg>
 );
 
-export default HR;
+export default StaffPage;

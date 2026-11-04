@@ -1,7 +1,6 @@
 import { Layout, Menu, Input, Avatar, Badge, Dropdown, Button } from 'antd';
 import {
   DashboardOutlined,
-  CalendarOutlined,
   LaptopOutlined,
   DollarOutlined,
   TeamOutlined,
@@ -15,7 +14,7 @@ import {
   GlobalOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 
 const { Header, Sider, Content } = Layout;
 
@@ -35,19 +34,13 @@ const MainLayout = () => {
       key: 'reception',
       icon: <LaptopOutlined />,
       label: 'Lễ tân & Thu ngân',
-      roles: ['admin', 'technician', 'receptionist'],
+      roles: ['admin', 'receptionist'],
     },
     {
       key: 'technician',
       icon: <ToolOutlined />,
       label: 'Bàn làm việc KTV',
       roles: ['admin', 'technician'],
-    },
-    {
-      key: 'appointments',
-      icon: <CalendarOutlined />,
-      label: 'Điều phối lịch hẹn',
-      roles: ['admin', 'technician', 'receptionist'],
     },
     {
       key: 'warehouse',

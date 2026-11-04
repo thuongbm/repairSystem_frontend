@@ -20,13 +20,12 @@ import {
 import AssignedJobsTab from '../components/Technician/AssignedJobsTab';
 import DiagnosisModal from '../components/Technician/DiagnosisModal';
 import AdditionalProposalModal from '../components/Technician/AdditionalProposalModal';
-import PartsRequisitionTab from '../components/Technician/PartsRequisitionTab';
+import VatTuV3Tab from '../components/Technician/VatTuV3Tab';
 import ProposalsTab from '../components/Technician/ProposalsTab';
 import ProductivityTab from '../components/Technician/ProductivityTab';
 
 import { 
   initialJobs, 
-  initialRequisitions, 
   initialProposals, 
   TECHNICIAN_INFO 
 } from '../components/Technician/mockData';
@@ -36,7 +35,6 @@ const { Title, Text } = Typography;
 const Technician = () => {
   const [activeTab, setActiveTab] = useState('assigned_jobs');
   const [jobs, setJobs] = useState(initialJobs);
-  const [requisitions, setRequisitions] = useState(initialRequisitions);
   const [proposals, setProposals] = useState(initialProposals);
 
   // Modal states
@@ -111,34 +109,6 @@ const Technician = () => {
     setProposalModalVisible(false);
   };
 
-  const handleAddRequisition = (newRequisition) => {
-    setRequisitions(prev => [newRequisition, ...prev]);
-
-    // If attached to a job, reflect in job's spare parts & set status if needed
-    setJobs(prev =>
-      prev.map(j => {
-        if (j.code === newRequisition.repairJobCode) {
-          const parts = j.spareParts || [];
-          return {
-            ...j,
-            status: 'Chờ linh kiện',
-            spareParts: [
-              ...parts,
-              {
-                id: newRequisition.requestCode,
-                name: newRequisition.partName,
-                code: newRequisition.partCode,
-                qty: newRequisition.quantity,
-                status: 'Chờ kho xuất',
-              },
-            ],
-          };
-        }
-        return j;
-      })
-    );
-  };
-
   // Open diagnosis modal for a job
   const handleOpenDiagnosis = (job) => {
     setActiveJobForAction(job);
@@ -189,16 +159,11 @@ const Technician = () => {
       key: 'parts_requisition',
       label: (
         <span style={{ fontSize: '14px', fontWeight: 600 }}>
-          <ShoppingCartOutlined /> Tra cứu & Lĩnh vật tư{' '}
-          <Badge count={requisitions.length} style={{ backgroundColor: '#52c41a', marginLeft: '4px' }} />
+          <ShoppingCartOutlined /> Yêu cầu vật tư
         </span>
       ),
       children: (
-        <PartsRequisitionTab
-          jobs={jobs}
-          requisitions={requisitions}
-          onAddRequisition={handleAddRequisition}
-        />
+        <VatTuV3Tab />
       ),
     },
     {
