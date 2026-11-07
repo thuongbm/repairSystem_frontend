@@ -93,6 +93,7 @@ const WarehousePage = () => {
   // --- Modal States ---
   const [isImportModalVisible, setIsImportModalVisible] = useState(false);
   const [isMauModalVisible, setIsMauModalVisible] = useState(false);
+  const [editingMauId, setEditingMauId] = useState(null);
   const [partPolicies, setPartPolicies] = useState({});
   const [selectedPhieuDetail, setSelectedPhieuDetail] = useState(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
@@ -1105,7 +1106,7 @@ const WarehousePage = () => {
       title: 'Thao tác',
       key: 'action',
       width: 140,
-      render: (_, record) => (
+      render: (_, record) => user?.role === 'warehouse' ? (
         <Button
           type="primary"
           size="small"
@@ -1114,7 +1115,7 @@ const WarehousePage = () => {
         >
           Xuất kho
         </Button>
-      ),
+      ) : <Text type="secondary">Thủ kho thực hiện</Text>,
     },
   ];
 
@@ -1248,10 +1249,14 @@ const WarehousePage = () => {
           </Button>
           <Button
             icon={<AppstoreOutlined />}
-            onClick={() => setIsMauModalVisible(true)}
+            onClick={() => { setEditingMauId(null); setIsMauModalVisible(true); }}
           >
             Tạo mẫu linh kiện
           </Button>
+          <Select showSearch optionFilterProp="label" style={{ width: 230 }}
+            placeholder="Chọn mẫu để sửa" value={editingMauId} onChange={setEditingMauId}
+            options={linhKienList.map((part) => ({ value: part.id, label: `${part.maLk} — ${part.tenLinhKien}` }))} />
+          <Button disabled={!editingMauId} onClick={() => setIsMauModalVisible(true)}>Sửa mẫu</Button>
           {user?.role === 'admin' && <Button onClick={() => setIsKhoModalVisible(true)}>Tạo kho</Button>}
           {user?.role === 'admin' && <Button onClick={() => setIsNccModalVisible(true)}>Tạo nhà cung cấp</Button>}
           <Button
@@ -1702,10 +1707,12 @@ const WarehousePage = () => {
 
       <MauLinhKienModal
         open={isMauModalVisible}
+        editId={editingMauId}
         onClose={() => setIsMauModalVisible(false)}
-        onCreated={(id) => {
+        onCreated={(id, wasEdit) => {
           fetchMetaCatalogs();
-          if (id) handleOpenImportModal(id, 1);
+          fetchTonKho();
+          if (id && !wasEdit) handleOpenImportModal(id, 1);
         }}
       />
 

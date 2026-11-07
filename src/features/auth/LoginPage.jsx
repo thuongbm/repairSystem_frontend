@@ -101,6 +101,7 @@ const LoginPage = () => {
         hoTen: values.reg_hoTen.trim(),
         soDienThoai: values.reg_soDienThoai.trim(),
         email: values.reg_email ? values.reg_email.trim() : null,
+        maLienKet: values.reg_maLienKet?.trim() || null,
       };
 
       const res = await api.register(payload);
@@ -343,6 +344,11 @@ const LoginPage = () => {
                           placeholder="Ví dụ: nguyenvana@gmail.com"
                           size="large"
                         />
+                      </Form.Item>
+
+                      <Form.Item label="Mã liên kết hồ sơ (nếu đã từng sửa máy tại cửa hàng)"
+                        name="reg_maLienKet" rules={[{ pattern: /^[A-Fa-f0-9]{32}$/, message: 'Mã gồm 32 ký tự hex.' }]}>
+                        <Input maxLength={32} placeholder="Nhận mã tại quầy sau khi xác minh thông tin" />
                       </Form.Item>
 
                       <Form.Item

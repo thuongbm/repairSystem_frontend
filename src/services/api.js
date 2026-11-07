@@ -54,6 +54,18 @@ export const api = {
     const res = await client.post('/auth/refresh-token', { refreshToken });
     return res.data;
   },
+  getKhungGioLichHen: async (ngay) =>
+    (await client.get('/lich-hen/khung-gio', { params: { ngay } })).data,
+  datLichHen: async (payload) => (await client.post('/lich-hen', payload)).data,
+  getLichHenCuaToi: async () => (await client.get('/lich-hen/me')).data,
+  huyLichHen: async (id) => (await client.post(`/lich-hen/${id}/huy`)).data,
+  getLichHen: async () => (await client.get('/lich-hen')).data,
+  doiTrangThaiLichHen: async (id, payload) =>
+    (await client.patch(`/lich-hen/${id}/trang-thai`, payload)).data,
+  timKhachTheoDienThoai: async (soDienThoai) =>
+    (await client.get('/khach-hang', { params: { soDienThoai } })).data,
+  capMaLienKetKhach: async (id) =>
+    (await client.post(`/khach-hang/${id}/ma-lien-ket`)).data,
 
   // Danh mục Phase 0 & Quản trị nhân sự
   getNhanVien: async (params) => {
@@ -82,6 +94,10 @@ export const api = {
     const res = await client.get('/users');
     return res.data;
   },
+  getUserByUsername: async (username) =>
+    (await client.get(`/users/by-username/${encodeURIComponent(username)}`)).data,
+  datLaiMatKhau: async (id, payload) =>
+    (await client.post(`/users/${id}/reset-password`, payload)).data,
   capNhatTrangThaiTaiKhoan: async (taiKhoanId, isActive) => {
     const res = await client.put(`/users/${taiKhoanId}/status`, { isActive });
     return res.data;
@@ -104,12 +120,20 @@ export const api = {
   },
   getLoaiLinhKienV3: async () => (await client.get('/v3/loai-linh-kien')).data,
   taoLoaiLinhKienV3: async (payload) => (await client.post('/v3/loai-linh-kien', payload)).data,
+  capNhatLoaiLinhKienV3: async (id, payload) =>
+    (await client.put(`/v3/loai-linh-kien/${id}`, payload)).data,
   taoThuocTinhLinhKienV3: async (loaiId, payload) =>
     (await client.post(`/v3/loai-linh-kien/${loaiId}/thuoc-tinh`, payload)).data,
+  capNhatThuocTinhLinhKienV3: async (id, payload) =>
+    (await client.put(`/v3/loai-linh-kien/thuoc-tinh/${id}`, payload)).data,
   taoLuaChonLinhKienV3: async (thuocTinhId, payload) =>
     (await client.post(`/v3/loai-linh-kien/thuoc-tinh/${thuocTinhId}/lua-chon`, payload)).data,
+  capNhatLuaChonLinhKienV3: async (id, payload) =>
+    (await client.put(`/v3/loai-linh-kien/lua-chon/${id}`, payload)).data,
   taoMauLinhKienV3: async (payload) => (await client.post('/v3/mau-linh-kien', payload)).data,
   getMauLinhKienV3: async (id) => (await client.get(`/v3/mau-linh-kien/${id}`)).data,
+  capNhatMauLinhKienV3: async (id, payload) =>
+    (await client.put(`/v3/mau-linh-kien/${id}`, payload)).data,
   getYeuCauVatTuV3: async (phieuId) =>
     (await client.get(`/v3/phieu-sua-chua/${phieuId}/vat-tu/yeu-cau`)).data,
   taoYeuCauVatTuV3: async (phieuId, payload) =>
@@ -229,6 +253,12 @@ export const api = {
     const res = await client.get('/phieu-sua-chua', { params });
     return res.data;
   },
+  getChiTietPhieuSuaChua: async (id) =>
+    (await client.get(`/phieu-sua-chua/${id}`)).data,
+  xacNhanNhanMay: async (id) =>
+    (await client.post(`/phieu-sua-chua/${id}/nhan-may`)).data,
+  luuKetQuaKiemTra: async (id, ketQuaKiemTra) =>
+    (await client.patch(`/phieu-sua-chua/${id}/kiem-tra`, { ketQuaKiemTra })).data,
   // Danh sách KTV kèm số ca đang làm (Admin, Lễ tân) để phân công khi tiếp nhận
   getKyThuatVienPhanCong: async () => {
     const res = await client.get('/phieu-sua-chua/ky-thuat-vien');

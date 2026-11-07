@@ -3,6 +3,8 @@ import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber,
   Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import IntakeModal from './IntakeModal';
+import AppointmentPanel from './AppointmentPanel';
+import CustomerLinkPanel from './CustomerLinkPanel';
 import { useAuth } from '../../context/useAuth';
 import { api } from '../../services/api';
 
@@ -295,6 +297,8 @@ export default function ReceptionPage() {
       value={search} onChange={(e) => setSearch(e.target.value)} />
       <Button onClick={loadTickets}>Làm mới</Button>
       <Button type="primary" onClick={() => setIntakeOpen(true)}>Tiếp nhận máy</Button></Space>
+    <AppointmentPanel tickets={tickets} />
+    <CustomerLinkPanel />
     <Table loading={loading} dataSource={tickets.filter((x) =>
       `${x.maPhieu} ${x.tenKhachHang} ${x.tenThietBi}`.toLowerCase().includes(search.toLowerCase()))}
       rowKey="id" scroll={{ x: 850 }} pagination={{ pageSize: 10 }} columns={[

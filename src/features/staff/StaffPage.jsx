@@ -62,10 +62,13 @@ const StaffPage = () => {
   const [searchText, setSearchText] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
 
   const [form] = Form.useForm();
+  const [resetForm] = Form.useForm();
   const selectedRoleInForm = Form.useWatch('chucVu', form);
 
   // Lấy dữ liệu thật từ Database qua Backend API
@@ -155,6 +158,22 @@ const StaffPage = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleResetPassword = async (values) => {
+    setResetting(true);
+    try {
+      const account = (await api.getUserByUsername(values.tenDangNhap.trim())).data;
+      if (!account?.taiKhoanId) throw new Error('Không tìm thấy tài khoản.');
+      await api.datLaiMatKhau(account.taiKhoanId, {
+        newPassword: values.matKhauMoi,
+        confirmPassword: values.xacNhanMatKhau,
+      });
+      message.success('Đã đặt lại mật khẩu. Hãy chuyển mật khẩu mới trực tiếp cho chủ tài khoản.');
+      resetForm.resetFields();
+      setIsResetOpen(false);
+    } catch (err) { message.error(err.response?.data?.message || err.message || 'Đặt lại mật khẩu thất bại.'); }
+    finally { setResetting(false); }
   };
 
   // Lọc dữ liệu hiển thị theo tìm kiếm & vai trò
@@ -298,6 +317,7 @@ const StaffPage = () => {
               </div>
 
               <Space>
+                <Button onClick={() => setIsResetOpen(true)}>Đặt lại mật khẩu</Button>
                 <Button 
                   icon={<ReloadOutlined />} 
                   onClick={fetchStaffData} 
@@ -412,6 +432,30 @@ const StaffPage = () => {
       </Row>
 
       {/* Modal Thêm nhân viên mới */}
+      <Modal title="Đặt lại mật khẩu tài khoản" open={isResetOpen}
+        onCancel={() => { setIsResetOpen(false); resetForm.resetFields(); }}
+        onOk={() => resetForm.submit()} okText="Đặt lại" confirmLoading={resetting}>
+        <Text type="secondary">Chỉ thực hiện sau khi xác minh chủ tài khoản. Mật khẩu mới cần được chuyển trực tiếp cho họ.</Text>
+        <Form form={resetForm} layout="vertical" onFinish={handleResetPassword}>
+          <Form.Item name="tenDangNhap" label="Tên đăng nhập (nhân viên hoặc khách hàng)"
+            rules={[{ required: true, message: 'Nhập tên đăng nhập.' }]}>
+            <Input maxLength={50} autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="matKhauMoi" label="Mật khẩu mới"
+            rules={[{ required: true }, { min: 8, message: 'Tối thiểu 8 ký tự.' }]}>
+            <Input.Password maxLength={100} autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item name="xacNhanMatKhau" label="Nhập lại mật khẩu mới"
+            dependencies={['matKhauMoi']} rules={[{ required: true }, ({ getFieldValue }) => ({
+              validator(_, value) {
+                return value === getFieldValue('matKhauMoi')
+                  ? Promise.resolve() : Promise.reject(new Error('Mật khẩu xác nhận không khớp.'));
+              },
+            })]}>
+            <Input.Password maxLength={100} autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Modal
         title="Thêm nhân viên & tạo tài khoản mới"
         open={isModalOpen}

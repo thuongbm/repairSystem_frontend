@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Input, Space, Table, Typography, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
+import BookingPanel from './BookingPanel';
+import { useAuth } from '../../context/useAuth';
 
 const { Title, Text } = Typography;
 
 export default function CustomerPortalPage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [services, setServices] = useState([]);
   const [serial, setSerial] = useState('');
   const [result, setResult] = useState(null);
@@ -31,7 +34,8 @@ export default function CustomerPortalPage() {
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between' }}>
         <Title level={2} style={{ margin: 0 }}>Dịch vụ sửa chữa thiết bị</Title>
-        <Button onClick={() => navigate('/login')}>Đăng nhập</Button>
+        {user ? <Space><Text>{user.name}</Text><Button onClick={() => { logout(); navigate('/'); }}>Đăng xuất</Button></Space>
+          : <Button onClick={() => navigate('/login')}>Đăng nhập</Button>}
       </Space>
       <Alert type="info" showIcon message="Tiếp nhận tại cửa hàng"
         description="Giá niêm yết chỉ để tham khảo. Nhân viên lập phiếu và báo giá sau khi kiểm tra thiết bị; khách xác nhận trước khi sửa." />
@@ -42,6 +46,7 @@ export default function CustomerPortalPage() {
           { title: 'Giá niêm yết', dataIndex: 'giaNiemYet', render: (v) => `${Number(v).toLocaleString('vi-VN')} ₫` },
         ]} />
       </Card>
+      <BookingPanel />
       <Card title="Tra cứu bảo hành linh kiện theo serial">
         <Space.Compact style={{ width: '100%', maxWidth: 520 }}>
           <Input value={serial} onChange={(e) => setSerial(e.target.value)}

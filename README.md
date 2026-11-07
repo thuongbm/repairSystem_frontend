@@ -47,6 +47,8 @@ npm run dev
 
 Các màn đang hoạt động nằm trong `src/features`, được nhóm theo nghiệp vụ: `auth`, `catalog`, `customer`, `dashboard`, `inventory`, `reception`, `repair` và `staff`. Route nằm trong `src/App.jsx`; API dùng chung nằm trong `src/services/api.js`. Các màn mẫu cũ được lưu tại `archive/legacy-ui` và không chạy trong ứng dụng hiện tại.
 
+Giao diện V3 hiện có: khách chọn khung giờ còn chỗ và hủy lịch; lễ tân xác nhận lịch, liên kết phiếu và cấp mã liên kết hồ sơ cũ; Admin đặt lại mật khẩu; kho sửa mẫu và cấu hình loại linh kiện. Xem quy tắc API tại `Project1_backend/API_V3_COMPLETION.md`.
+
 Xem [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) để biết cây thư mục và vị trí cần sửa khi thêm chức năng.
 
 ---

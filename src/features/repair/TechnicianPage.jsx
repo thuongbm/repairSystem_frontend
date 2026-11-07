@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import VatTuTab from './VatTuTab';
 import { api } from '../../services/api';
+import { useAuth } from '../../context/useAuth';
 
 const { Title, Text } = Typography;
 const transitions = {
@@ -12,10 +13,12 @@ const transitions = {
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
 
 export default function TechnicianPage() {
+  const { user } = useAuth();
   const [form] = Form.useForm();
   const [tickets, setTickets] = useState([]);
   const [selected, setSelected] = useState(null);
   const [issued, setIssued] = useState([]);
+  const [diagnosis, setDiagnosis] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -35,9 +38,42 @@ export default function TechnicianPage() {
 
   const open = async (ticket) => {
     setSelected(ticket);
+    setDiagnosis(ticket.ketQuaKiemTra || '');
     form.resetFields();
-    try { setIssued((await api.getXuatKhoPhieu(ticket.id)).data || []); }
+    try {
+      const [detail, parts] = await Promise.all([
+        api.getChiTietPhieuSuaChua(ticket.id), api.getXuatKhoPhieu(ticket.id),
+      ]);
+      setSelected(detail.data);
+      setDiagnosis(detail.data.ketQuaKiemTra || '');
+      setIssued(parts.data || []);
+    }
     catch (e) { message.error(errorText(e)); }
+  };
+
+  const refreshSelected = async () => {
+    const detail = (await api.getChiTietPhieuSuaChua(selected.id)).data;
+    setSelected(detail);
+    setDiagnosis(detail.ketQuaKiemTra || '');
+    await reload();
+  };
+
+  const receive = async () => {
+    setBusy(true);
+    try { await api.xacNhanNhanMay(selected.id); await refreshSelected(); message.success('Đã xác nhận nhận máy.'); }
+    catch (e) { message.error(errorText(e)); }
+    finally { setBusy(false); }
+  };
+
+  const saveDiagnosis = async () => {
+    if (!diagnosis.trim()) { message.warning('Nhập kết quả kiểm tra.'); return; }
+    setBusy(true);
+    try {
+      await api.luuKetQuaKiemTra(selected.id, diagnosis.trim());
+      await refreshSelected();
+      message.success('Đã lưu kết quả kiểm tra.');
+    } catch (e) { message.error(errorText(e)); }
+    finally { setBusy(false); }
   };
 
   const submit = async (v) => {
@@ -73,13 +109,35 @@ export default function TechnicianPage() {
     ]} />
     <Modal open={!!selected} title={selected?.maPhieu} onCancel={() => setSelected(null)}
       onOk={() => form.submit()} okText="Lưu trạng thái" confirmLoading={busy}
-      okButtonProps={{ disabled: !(transitions[selected?.trangThai] || []).length }}>
+      okButtonProps={{ disabled: !(transitions[selected?.trangThai] || []).length ||
+        (selected?.trangThai === 'TIEP_NHAN' &&
+          (!selected?.ktvNhanLuc || !selected?.ketQuaKiemTra || selected?.baoGiaMoiNhatTrangThai !== 'DA_DUYET')) }}>
       {selected && <Space direction="vertical" style={{ width: '100%' }}>
         <Card size="small">
           <Text strong>{selected.tenThietBi}</Text><br />
           <Text>Lỗi: {selected.tinhTrangLoi}</Text><br />
           <Text>Ngoại quan: {selected.tinhTrangNgoaiQuan || '—'}</Text><br />
           <Text>Phụ kiện gửi kèm: {selected.phuKienKemTheo || '—'}</Text>
+        </Card>
+        <Card size="small" title="Nhận máy và kiểm tra ban đầu"
+          extra={<Button size="small" onClick={() => refreshSelected().catch((e) => message.error(errorText(e)))}>Làm mới</Button>}>
+          {selected.ktvNhanLuc
+            ? <Text type="success">Đã nhận máy lúc {dayjs(selected.ktvNhanLuc).format('DD/MM/YYYY HH:mm')}</Text>
+            : user?.role === 'technician' && selected.trangThai === 'TIEP_NHAN'
+              ? <Button type="primary" onClick={receive} loading={busy}>Xác nhận đã nhận máy</Button>
+              : <Text type="secondary">Chờ KTV phụ trách xác nhận nhận máy.</Text>}
+          <Input.TextArea rows={3} maxLength={1000} style={{ marginTop: 12 }}
+            value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)}
+            placeholder="Kết quả kiểm tra và hạng mục cần sửa"
+            disabled={user?.role !== 'technician' || !selected.ktvNhanLuc || busy || selected.trangThai !== 'TIEP_NHAN'} />
+          {user?.role === 'technician' && <Button style={{ marginTop: 8 }} onClick={saveDiagnosis}
+            loading={busy} disabled={!selected.ktvNhanLuc || !diagnosis.trim() || selected.trangThai !== 'TIEP_NHAN'}>
+            Lưu kết quả kiểm tra
+          </Button>}
+          {selected.trangThai === 'TIEP_NHAN' && <Alert style={{ marginTop: 12 }}
+            type={selected.ktvNhanLuc && selected.ketQuaKiemTra && selected.baoGiaMoiNhatTrangThai === 'DA_DUYET' ? 'success' : 'info'}
+            showIcon message={`Báo giá mới nhất: ${selected.baoGiaMoiNhatTrangThai || 'Chưa có'}`}
+            description="Sau khi KTV nhận máy, ghi kết quả kiểm tra và khách duyệt báo giá, phiếu mới được chuyển sang đang sửa." />}
         </Card>
         <Card size="small" title="Linh kiện đã xuất">
           <Table dataSource={issued} rowKey="chiTietXuatKhoId" size="small" pagination={false} columns={[
