@@ -82,7 +82,9 @@ export default function BookingPanel() {
       {!isCustomer ? user ? <Text>Tài khoản nhân viên không đặt lịch khách hàng tại đây.</Text>
         : <Space>
           <Text>Đăng nhập tài khoản khách hàng để đặt và quản lý lịch hẹn.</Text>
-          <Button type="primary" onClick={() => navigate('/login')}>Đăng nhập / đăng ký</Button>
+          <Button type="primary" onClick={() => navigate('/login', { state: { returnToBooking: true } })}>
+            Đăng nhập / đăng ký
+          </Button>
         </Space> : <>
         <Form form={form} layout="vertical" onFinish={book} style={{ maxWidth: 600 }}>
           <Form.Item label="Ngày đến cửa hàng">
@@ -111,6 +113,7 @@ export default function BookingPanel() {
             { title: 'Thời gian', dataIndex: 'thoiGianMongMuon', render: vietnamDateTime },
             { title: 'Thiết bị', dataIndex: 'tenThietBi' },
             { title: 'Trạng thái', dataIndex: 'trangThai', render: (value) => <Tag>{value}</Tag> },
+            { title: 'Ghi chú lễ tân', dataIndex: 'ghiChu', render: (value) => value || '—' },
             { title: '', render: (_, row) => ['CHO_XAC_NHAN', 'DA_XAC_NHAN'].includes(row.trangThai)
               && new Date(row.thoiGianMongMuon) > new Date()
               ? <Popconfirm title="Hủy lịch hẹn này?" onConfirm={() => cancel(row.id)}>

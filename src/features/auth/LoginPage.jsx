@@ -70,7 +70,7 @@ const LoginPage = () => {
       
       // Nếu là khách hàng thì về trang chủ dịch vụ, nếu là nhân sự thì vào bảng điều khiển nội bộ
       if (role === 'customer') {
-        navigate('/', { replace: true });
+        navigate(location.state?.returnToBooking ? '/?tab=appointments' : '/', { replace: true });
       } else {
         const dest = from !== '/' && from !== '/login' ? from : '/dashboard';
         navigate(dest, { replace: true });
@@ -346,9 +346,11 @@ const LoginPage = () => {
                         />
                       </Form.Item>
 
-                      <Form.Item label="Mã liên kết hồ sơ (nếu đã từng sửa máy tại cửa hàng)"
-                        name="reg_maLienKet" rules={[{ pattern: /^[A-Fa-f0-9]{32}$/, message: 'Mã gồm 32 ký tự hex.' }]}>
-                        <Input maxLength={32} placeholder="Nhận mã tại quầy sau khi xác minh thông tin" />
+                      <Form.Item label="Mã liên kết hồ sơ cũ (nếu đã từng sửa máy tại cửa hàng)"
+                        name="reg_maLienKet"
+                        rules={[{ pattern: /^[A-Fa-f0-9]{32}$/, message: 'Mã gồm 32 ký tự hex.' }]}
+                        tooltip="Nhận mã từ lễ tân sau khi xác minh tại cửa hàng; mã có hiệu lực 15 phút.">
+                        <Input placeholder="Mã do lễ tân cung cấp" size="large" maxLength={32} />
                       </Form.Item>
 
                       <Form.Item

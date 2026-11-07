@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import VatTuTab from './VatTuTab';
+import TicketPhotos from '../../components/TicketPhotos';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 
@@ -60,13 +61,16 @@ export default function TechnicianPage() {
 
   const receive = async () => {
     setBusy(true);
-    try { await api.xacNhanNhanMay(selected.id); await refreshSelected(); message.success('Đã xác nhận nhận máy.'); }
-    catch (e) { message.error(errorText(e)); }
+    try {
+      await api.xacNhanNhanMay(selected.id);
+      await refreshSelected();
+      message.success('Đã xác nhận nhận máy.');
+    } catch (e) { message.error(errorText(e)); }
     finally { setBusy(false); }
   };
 
   const saveDiagnosis = async () => {
-    if (!diagnosis.trim()) { message.warning('Nhập kết quả kiểm tra.'); return; }
+    if (!diagnosis.trim()) { message.warning('Vui lòng nhập kết quả kiểm tra.'); return; }
     setBusy(true);
     try {
       await api.luuKetQuaKiemTra(selected.id, diagnosis.trim());
@@ -90,6 +94,9 @@ export default function TechnicianPage() {
     finally { setBusy(false); }
   };
 
+  const activeTicket = ['TIEP_NHAN', 'DANG_SUA', 'CHO_LINH_KIEN'].includes(selected?.trangThai);
+  const canDiagnose = user?.role === 'technician' && activeTicket;
+
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
     <Title level={3}>Bàn làm việc kỹ thuật viên</Title>
     <Tabs items={[
@@ -102,12 +109,17 @@ export default function TechnicianPage() {
             { title: 'Lỗi khách báo', dataIndex: 'tinhTrangLoi' },
             { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
             { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+            { title: 'Nhận máy', dataIndex: 'ktvNhanLuc', render: (v, row) => v
+              ? <Tag color="green">Đã nhận</Tag>
+              : ['HOAN_THANH', 'DA_TRA', 'HUY'].includes(row.trangThai)
+                ? <Tag>Không ghi nhận</Tag> : <Tag>Chưa xác nhận</Tag> },
             { title: '', render: (_, row) => <Button onClick={() => open(row)}>Xử lý</Button> },
           ]} />
       </> },
       { key: 'materials', label: 'Yêu cầu vật tư', children: <VatTuTab /> },
     ]} />
     <Modal open={!!selected} title={selected?.maPhieu} onCancel={() => setSelected(null)}
+      styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       onOk={() => form.submit()} okText="Lưu trạng thái" confirmLoading={busy}
       okButtonProps={{ disabled: !(transitions[selected?.trangThai] || []).length ||
         (selected?.trangThai === 'TIEP_NHAN' &&
@@ -122,22 +134,22 @@ export default function TechnicianPage() {
         <Card size="small" title="Nhận máy và kiểm tra ban đầu"
           extra={<Button size="small" onClick={() => refreshSelected().catch((e) => message.error(errorText(e)))}>Làm mới</Button>}>
           {selected.ktvNhanLuc
-            ? <Text type="success">Đã nhận máy lúc {dayjs(selected.ktvNhanLuc).format('DD/MM/YYYY HH:mm')}</Text>
-            : user?.role === 'technician' && selected.trangThai === 'TIEP_NHAN'
+            ? <Text type="success">Đã xác nhận nhận máy lúc {dayjs(selected.ktvNhanLuc).format('DD/MM/YYYY HH:mm')}</Text>
+            : canDiagnose
               ? <Button type="primary" onClick={receive} loading={busy}>Xác nhận đã nhận máy</Button>
-              : <Text type="secondary">Chờ KTV phụ trách xác nhận nhận máy.</Text>}
+              : <Text type="secondary">Phiếu đã kết thúc; không thể xác nhận nhận máy.</Text>}
           <Input.TextArea rows={3} maxLength={1000} style={{ marginTop: 12 }}
-            value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)}
-            placeholder="Kết quả kiểm tra và hạng mục cần sửa"
-            disabled={user?.role !== 'technician' || !selected.ktvNhanLuc || busy || selected.trangThai !== 'TIEP_NHAN'} />
-          {user?.role === 'technician' && <Button style={{ marginTop: 8 }} onClick={saveDiagnosis}
-            loading={busy} disabled={!selected.ktvNhanLuc || !diagnosis.trim() || selected.trangThai !== 'TIEP_NHAN'}>
+            placeholder="Kết quả kiểm tra, nguyên nhân dự kiến và hạng mục cần sửa"
+            value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)}
+            disabled={!selected.ktvNhanLuc || busy || !canDiagnose} />
+          <Button style={{ marginTop: 8 }} onClick={saveDiagnosis} loading={busy}
+            disabled={!selected.ktvNhanLuc || !diagnosis.trim() || !canDiagnose}>
             Lưu kết quả kiểm tra
-          </Button>}
+          </Button>
           {selected.trangThai === 'TIEP_NHAN' && <Alert style={{ marginTop: 12 }}
             type={selected.ktvNhanLuc && selected.ketQuaKiemTra && selected.baoGiaMoiNhatTrangThai === 'DA_DUYET' ? 'success' : 'info'}
             showIcon message={`Báo giá mới nhất: ${selected.baoGiaMoiNhatTrangThai || 'Chưa có'}`}
-            description="Sau khi KTV nhận máy, ghi kết quả kiểm tra và khách duyệt báo giá, phiếu mới được chuyển sang đang sửa." />}
+            description="KTV xác nhận nhận máy và ghi kết quả kiểm tra; lễ tân lập báo giá, khách đồng ý rồi mới bắt đầu sửa." />}
         </Card>
         <Card size="small" title="Linh kiện đã xuất">
           <Table dataSource={issued} rowKey="chiTietXuatKhoId" size="small" pagination={false} columns={[
@@ -146,6 +158,7 @@ export default function TechnicianPage() {
             { title: 'Serial', dataIndex: 'soSerial', render: (v) => v || '—' },
           ]} />
         </Card>
+        <TicketPhotos key={selected.id} ticketId={selected.id} role={user?.role} ticketStatus={selected.trangThai} />
         <Form form={form} layout="vertical" onFinish={submit}>
           <Form.Item name="trangThai" label="Chuyển sang" rules={[{ required: true }]}>
             <Select options={(transitions[selected.trangThai] || []).map((x) => ({ value: x, label: x }))} />

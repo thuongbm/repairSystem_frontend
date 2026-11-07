@@ -50,22 +50,34 @@ export const api = {
     const res = await client.get('/auth/me');
     return res.data;
   },
+  capMaLienKetKhach: async (id) => (await client.post(`/khach-hang/${id}/ma-lien-ket`)).data,
+  timKhachTheoDienThoai: async (soDienThoai) =>
+    (await client.get('/khach-hang', { params: { soDienThoai } })).data,
+  getPhieuCuaToi: async () => (await client.get('/khach-hang/me/phieu-sua-chua')).data,
+  getChiTietPhieuCuaToi: async (id) => (await client.get(`/khach-hang/me/phieu-sua-chua/${id}`)).data,
+  getBaoHanhCuaToi: async () => (await client.get('/khach-hang/me/bao-hanh')).data,
+  phanHoiBaoGiaKhach: async (id, payload) =>
+    (await client.post(`/khach-hang/me/bao-gia/${id}/phan-hoi`, payload)).data,
+  datLichHen: async (payload) => (await client.post('/lich-hen', payload)).data,
+  getLichHenCuaToi: async () => (await client.get('/lich-hen/me')).data,
+  huyLichHen: async (id) => (await client.post(`/lich-hen/${id}/huy`)).data,
+  getLichHen: async (params) => (await client.get('/lich-hen', { params })).data,
+  doiTrangThaiLichHen: async (id, payload) => (await client.patch(`/lich-hen/${id}/trang-thai`, payload)).data,
+  phanCongPhieu: async (id, payload) => (await client.patch(`/phieu-sua-chua/${id}/phan-cong`, payload)).data,
+  doiHenTraPhieu: async (id, payload) => (await client.patch(`/phieu-sua-chua/${id}/hen-tra`, payload)).data,
+  getAnhPhieu: async (id) => (await client.get(`/phieu-sua-chua/${id}/anh`)).data,
+  getAnhPhieuFile: async (id, anhId) =>
+    (await client.get(`/phieu-sua-chua/${id}/anh/${anhId}`, { responseType: 'blob' })).data,
+  taiAnhPhieu: async (id, formData) =>
+    (await client.post(`/phieu-sua-chua/${id}/anh`, formData,
+      { headers: { 'Content-Type': undefined } })).data,
+  xoaAnhPhieu: async (id, anhId) => (await client.delete(`/phieu-sua-chua/${id}/anh/${anhId}`)).data,
   refreshToken: async (refreshToken) => {
     const res = await client.post('/auth/refresh-token', { refreshToken });
     return res.data;
   },
   getKhungGioLichHen: async (ngay) =>
     (await client.get('/lich-hen/khung-gio', { params: { ngay } })).data,
-  datLichHen: async (payload) => (await client.post('/lich-hen', payload)).data,
-  getLichHenCuaToi: async () => (await client.get('/lich-hen/me')).data,
-  huyLichHen: async (id) => (await client.post(`/lich-hen/${id}/huy`)).data,
-  getLichHen: async () => (await client.get('/lich-hen')).data,
-  doiTrangThaiLichHen: async (id, payload) =>
-    (await client.patch(`/lich-hen/${id}/trang-thai`, payload)).data,
-  timKhachTheoDienThoai: async (soDienThoai) =>
-    (await client.get('/khach-hang', { params: { soDienThoai } })).data,
-  capMaLienKetKhach: async (id) =>
-    (await client.post(`/khach-hang/${id}/ma-lien-ket`)).data,
 
   // Danh mục Phase 0 & Quản trị nhân sự
   getNhanVien: async (params) => {
@@ -176,10 +188,12 @@ export const api = {
     (await client.get('/v3/bao-hanh/nha-cung-cap', { params })).data,
   taoBaoHanhNccV3: async (payload) =>
     (await client.post('/v3/bao-hanh/nha-cung-cap', payload)).data,
-  guiBaoHanhNccV3: async (id) =>
-    (await client.post(`/v3/bao-hanh/nha-cung-cap/${id}/gui`)).data,
+  guiBaoHanhNccV3: async (id, payload) =>
+    (await client.post(`/v3/bao-hanh/nha-cung-cap/${id}/gui`, payload)).data,
   nhanLaiBaoHanhNccV3: async (id, payload) =>
     (await client.post(`/v3/bao-hanh/nha-cung-cap/${id}/nhan-lai`, payload)).data,
+  xuLyKhoBaoHanhNccV3: async (id, payload) =>
+    (await client.post(`/v3/bao-hanh/nha-cung-cap/${id}/xu-ly-kho`, payload)).data,
 
   // Kho & Tồn kho (Giai đoạn 1)
   getKho: async () => {
