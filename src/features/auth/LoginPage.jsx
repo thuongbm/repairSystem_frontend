@@ -70,7 +70,7 @@ const LoginPage = () => {
       
       // Nếu là khách hàng thì về trang chủ dịch vụ, nếu là nhân sự thì vào bảng điều khiển nội bộ
       if (role === 'customer') {
-        navigate('/', { replace: true });
+        navigate(location.state?.returnToBooking ? '/?tab=appointments' : '/', { replace: true });
       } else {
         const dest = from !== '/' && from !== '/login' ? from : '/dashboard';
         navigate(dest, { replace: true });
@@ -101,6 +101,7 @@ const LoginPage = () => {
         hoTen: values.reg_hoTen.trim(),
         soDienThoai: values.reg_soDienThoai.trim(),
         email: values.reg_email ? values.reg_email.trim() : null,
+        maLienKet: values.reg_maLienKet?.trim() || null,
       };
 
       const res = await api.register(payload);
@@ -343,6 +344,12 @@ const LoginPage = () => {
                           placeholder="Ví dụ: nguyenvana@gmail.com"
                           size="large"
                         />
+                      </Form.Item>
+
+                      <Form.Item label="Mã liên kết hồ sơ cũ (nếu đã từng sửa máy tại cửa hàng)"
+                        name="reg_maLienKet"
+                        tooltip="Nhận mã từ lễ tân sau khi xác minh tại cửa hàng; mã có hiệu lực 15 phút.">
+                        <Input placeholder="Mã do lễ tân cung cấp" size="large" maxLength={32} />
                       </Form.Item>
 
                       <Form.Item
