@@ -49,6 +49,16 @@ Các màn đang hoạt động nằm trong `src/features`, được nhóm theo n
 
 Xem [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) để biết cây thư mục và vị trí cần sửa khi thêm chức năng.
 
+Các màn hiện có đã gọi API bổ sung V3: cổng khách xem phiếu, phản hồi báo giá,
+đặt lịch và xem bảo hành; lễ tân xác nhận lịch, cấp mã liên kết tài khoản, điều phối
+phiếu và quản lý ảnh; kỹ thuật viên xem/tải ảnh; thủ kho xử lý tồn sau bảo hành NCC.
+Backend cần chạy migration `database_v3/BO_SUNG_API_20261106.sql` trên CSDL V3 cũ
+trước khi dùng các thao tác này. Xem danh sách endpoint tại
+`Project1_backend/API_BO_SUNG_20261106.md`.
+Để sử dụng luồng KTV, CSDL cũ cần chạy tiếp `database_v3/BO_SUNG_QUY_TRINH_KTV_20261107.sql`.
+Lễ tân tiếp nhận và phân công → KTV xác nhận nhận máy, ghi kết quả kiểm tra → lễ tân báo giá
+→ khách đồng ý → KTV bắt đầu sửa. KTV bấm **Làm mới** trong phiếu để nhận trạng thái báo giá mới.
+
 ---
 
 ## 📜 Các câu lệnh thường dùng (Available Scripts)

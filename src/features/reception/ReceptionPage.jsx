@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber,
+import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber, Modal,
   Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import IntakeModal from './IntakeModal';
+import TicketPhotos from '../../components/TicketPhotos';
 import { useAuth } from '../../context/useAuth';
 import { api } from '../../services/api';
 
@@ -20,6 +21,15 @@ export default function ReceptionPage() {
   const [services, setServices] = useState([]);
   const [parts, setParts] = useState([]);
   const [receptionists, setReceptionists] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [linkingAppointment, setLinkingAppointment] = useState(null);
+  const [linkTicketId, setLinkTicketId] = useState(null);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerMatch, setCustomerMatch] = useState(null);
+  const [linkCode, setLinkCode] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [selected, setSelected] = useState(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -40,6 +50,8 @@ export default function ReceptionPage() {
   const [commitmentForm] = Form.useForm();
   const [claimForm] = Form.useForm();
   const [statusForm] = Form.useForm();
+  const [assignmentForm] = Form.useForm();
+  const [returnDateForm] = Form.useForm();
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -50,6 +62,11 @@ export default function ReceptionPage() {
     }
     catch (e) { message.error(errorText(e)); }
     finally { setLoading(false); }
+  }, []);
+
+  const loadAppointments = useCallback(async (notifyOnError = true) => {
+    try { setAppointments((await api.getLichHen()).data || []); }
+    catch (e) { if (notifyOnError) message.error(errorText(e)); }
   }, []);
 
   const loadDetail = useCallback(async (id) => {
@@ -74,8 +91,18 @@ export default function ReceptionPage() {
         setParts(p.data || []); setReceptionists(r.data || []);
       })
       .catch((e) => message.error(errorText(e)));
+    api.getKyThuatVienPhanCong().then((r) => { if (active) setTechnicians(r.data || []); })
+      .catch((e) => message.error(errorText(e)));
     return () => { active = false; };
   }, [user?.role]);
+
+  useEffect(() => {
+    Promise.resolve().then(() => loadAppointments());
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadAppointments(false);
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [loadAppointments]);
 
   const perform = async (action, success) => {
     setBusy(true);
@@ -85,6 +112,42 @@ export default function ReceptionPage() {
       if (selected?.id) await loadDetail(selected.id);
       await loadTickets();
     } catch (e) { message.error(errorText(e)); }
+    finally { setBusy(false); }
+  };
+
+  const openTicket = (row) => {
+    setSelected(row);
+    assignmentForm.setFieldsValue({ kyThuatVienId: row.kyThuatVienId ?? null });
+    returnDateForm.setFieldsValue({ ngayHenTra: row.ngayHenTra ? dayjs(row.ngayHenTra) : null });
+    setCancelReason('');
+    loadDetail(row.id);
+  };
+
+  const updateAppointment = async (id, payload) => {
+    setBusy(true);
+    try {
+      await api.doiTrangThaiLichHen(id, payload);
+      message.success('Đã cập nhật lịch hẹn.');
+      setLinkingAppointment(null); setLinkTicketId(null);
+      await loadAppointments();
+    } catch (e) { message.error(errorText(e)); }
+    finally { setBusy(false); }
+  };
+
+  const findCustomer = async () => {
+    if (!customerPhone.trim()) { message.warning('Nhập số điện thoại khách.'); return; }
+    setBusy(true); setCustomerMatch(null); setLinkCode(null);
+    try { setCustomerMatch((await api.timKhachTheoDienThoai(customerPhone.trim())).data); }
+    catch (e) { message.error(e.response?.status === 404
+      ? 'Không tìm thấy hồ sơ khách hàng theo số điện thoại này.' : errorText(e)); }
+    finally { setBusy(false); }
+  };
+
+  const issueLinkCode = async () => {
+    if (!customerMatch?.id) return;
+    setBusy(true);
+    try { setLinkCode((await api.capMaLienKetKhach(customerMatch.id)).data); }
+    catch (e) { message.error(errorText(e)); }
     finally { setBusy(false); }
   };
 
@@ -288,13 +351,84 @@ export default function ReceptionPage() {
     </Card>
   </Space>;
 
+  const operationsTab = <Space direction="vertical" style={{ width: '100%' }}>
+    <Card size="small" title="Bàn giao cho KTV và kết quả kiểm tra"
+      extra={<Button size="small" onClick={() => { loadTickets(); loadDetail(selected.id); }}>Làm mới</Button>}>
+      <Text>KTV phụ trách: {selected?.tenKyThuatVien || 'Chưa phân công'}</Text><br />
+      <Text>Nhận máy: {selected?.ktvNhanLuc
+        ? dayjs(selected.ktvNhanLuc).format('DD/MM/YYYY HH:mm') : 'Chưa xác nhận'}</Text><br />
+      <Text>Kết quả kiểm tra: {selected?.ketQuaKiemTra || 'KTV chưa ghi nhận'}</Text>
+    </Card>
+    <Card size="small" title="Phân công kỹ thuật viên">
+      <Form form={assignmentForm} layout="inline" style={{ gap: 8 }}
+        onFinish={(v) => perform(() => api.phanCongPhieu(selected.id,
+          { kyThuatVienId: v.kyThuatVienId ?? null }), 'Đã cập nhật kỹ thuật viên phụ trách.')}>
+        <Form.Item name="kyThuatVienId"><Select allowClear style={{ width: 300 }}
+          placeholder="Chọn kỹ thuật viên" options={technicians.map((x) => ({
+            value: x.id, label: `${x.hoTen} · ${x.soCaDangLam} ca đang làm`,
+          }))} /></Form.Item>
+        <Button htmlType="submit" disabled={['HUY', 'DA_TRA', 'HOAN_THANH'].includes(selected?.trangThai)}
+          loading={busy}>Lưu phân công</Button>
+      </Form>
+    </Card>
+    <Card size="small" title="Thời gian hẹn trả">
+      <Form form={returnDateForm} layout="inline" style={{ gap: 8 }}
+        onFinish={(v) => perform(() => api.doiHenTraPhieu(selected.id,
+          { ngayHenTra: v.ngayHenTra?.toISOString() || null }), 'Đã cập nhật giờ hẹn trả.')}>
+        <Form.Item name="ngayHenTra"><DatePicker showTime format="DD/MM/YYYY HH:mm"
+          style={{ width: 230 }} /></Form.Item>
+        <Button htmlType="submit" disabled={['HUY', 'DA_TRA'].includes(selected?.trangThai)}
+          loading={busy}>Lưu hẹn trả</Button>
+      </Form>
+    </Card>
+    <TicketPhotos key={selected?.id} ticketId={selected?.id} role={user?.role} ticketStatus={selected?.trangThai} />
+    {['TIEP_NHAN', 'DANG_SUA', 'CHO_LINH_KIEN'].includes(selected?.trangThai) &&
+      <Card size="small" title="Hủy phiếu">
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+          message="Cần hoàn tiền cọc và trả hết vật tư đã xuất trước khi hủy." />
+        <Space wrap><Input style={{ width: 380 }} maxLength={500} value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)} placeholder="Lý do hủy phiếu" />
+          <Popconfirm title="Xác nhận hủy phiếu sửa chữa?" onConfirm={() => perform(async () => {
+            await api.capNhatTrangThaiPhieu(selected.id,
+              { trangThai: 'HUY', lyDoHuy: cancelReason.trim() });
+            setCancelReason('');
+          }, 'Đã hủy phiếu.')}>
+            <Button danger disabled={!cancelReason.trim()} loading={busy}>Hủy phiếu</Button>
+          </Popconfirm></Space>
+      </Card>}
+  </Space>;
+
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
     <Title level={3}>Tiếp nhận, báo giá và thu ngân</Title>
     <Alert type="info" showIcon message="Dữ liệu lấy trực tiếp từ CSDL V3" description="Tạo phiếu → báo giá và ghi dịch vụ → sửa/xuất linh kiện → lập hóa đơn → thu tiền → bàn giao → bảo hành." />
-    <Space><Input.Search placeholder="Mã phiếu, khách, thiết bị" allowClear style={{ width: 300 }}
+    <Space wrap><Input.Search placeholder="Mã phiếu, khách, thiết bị" allowClear style={{ width: 300 }}
       value={search} onChange={(e) => setSearch(e.target.value)} />
       <Button onClick={loadTickets}>Làm mới</Button>
+      <Button onClick={() => { setCodeOpen(true); setCustomerPhone('');
+        setCustomerMatch(null); setLinkCode(null); }}>Cấp mã liên kết khách</Button>
       <Button type="primary" onClick={() => setIntakeOpen(true)}>Tiếp nhận máy</Button></Space>
+    <Card size="small" title="Lịch hẹn mang máy đến" extra={<Button onClick={() => loadAppointments()}>Làm mới</Button>}>
+      <Table dataSource={appointments} rowKey="id" size="small" pagination={{ pageSize: 5 }} scroll={{ x: 950 }} columns={[
+        { title: 'Thời gian', dataIndex: 'thoiGianMongMuon', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
+        { title: 'Khách', dataIndex: 'tenKhachHang' },
+        { title: 'SĐT', dataIndex: 'soDienThoai' },
+        { title: 'Thiết bị', dataIndex: 'tenThietBi' },
+        { title: 'Lỗi báo', dataIndex: 'moTaLoi' },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+        { title: 'KTV nhận máy', dataIndex: 'ktvNhanLuc', render: (v) => v ? <Tag color="green">Đã nhận</Tag> : 'Chưa xác nhận' },
+        { title: '', render: (_, row) => row.trangThai === 'CHO_XAC_NHAN'
+          ? <Space>
+            <Button size="small" type="primary" loading={busy}
+              onClick={() => updateAppointment(row.id, { trangThai: 'DA_XAC_NHAN' })}>Xác nhận</Button>
+            <Popconfirm title="Từ chối lịch hẹn?" onConfirm={() => updateAppointment(row.id,
+              { trangThai: 'TU_CHOI', ghiChu: 'Không thể tiếp nhận vào thời gian đã chọn' })}>
+              <Button size="small" danger>Từ chối</Button></Popconfirm>
+          </Space>
+          : row.trangThai === 'DA_XAC_NHAN'
+            ? <Button size="small" onClick={() => { setLinkingAppointment(row); setLinkTicketId(null); }}>
+              Gắn phiếu đã tiếp nhận</Button> : row.phieuId ? `Phiếu #${row.phieuId}` : null },
+      ]} />
+    </Card>
     <Table loading={loading} dataSource={tickets.filter((x) =>
       `${x.maPhieu} ${x.tenKhachHang} ${x.tenThietBi}`.toLowerCase().includes(search.toLowerCase()))}
       rowKey="id" scroll={{ x: 850 }} pagination={{ pageSize: 10 }} columns={[
@@ -303,8 +437,37 @@ export default function ReceptionPage() {
         { title: 'Thiết bị', dataIndex: 'tenThietBi' },
         { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
         { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
-        { title: '', render: (_, row) => <Button onClick={() => { setSelected(row); loadDetail(row.id); }}>Xử lý</Button> },
+        { title: '', render: (_, row) => <Button onClick={() => openTicket(row)}>Xử lý</Button> },
       ]} />
+    <Modal open={codeOpen} title="Cấp mã liên kết hồ sơ khách"
+      onCancel={() => setCodeOpen(false)} footer={<Button onClick={() => setCodeOpen(false)}>Đóng</Button>}>
+      <Alert type="info" showIcon style={{ marginBottom: 12 }}
+        message="Chỉ cấp mã sau khi đã xác minh khách tại quầy" />
+      <Space.Compact style={{ width: '100%' }}>
+        <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)}
+          onPressEnter={findCustomer} placeholder="Số điện thoại khách" />
+        <Button onClick={findCustomer} loading={busy}>Tìm</Button>
+      </Space.Compact>
+      {customerMatch && <Space direction="vertical" style={{ marginTop: 12, width: '100%' }}>
+        <Text>{customerMatch.hoTen} · {customerMatch.soDienThoai}</Text>
+        {customerMatch.daCoTaiKhoan ? <Tag color="green">Đã có tài khoản</Tag>
+          : <Button type="primary" onClick={issueLinkCode} loading={busy}>Cấp mã 15 phút</Button>}
+      </Space>}
+      {linkCode && <Alert style={{ marginTop: 12 }} type="success" showIcon
+        message={<Text copyable>{linkCode.maLienKet}</Text>}
+        description={`Hết hạn: ${dayjs(linkCode.hetHan).format('DD/MM/YYYY HH:mm')}. Chỉ đưa mã cho khách đã xác minh.`} />}
+    </Modal>
+    <Modal open={!!linkingAppointment} title={`Gắn lịch #${linkingAppointment?.id || ''} với phiếu sửa`}
+      onCancel={() => setLinkingAppointment(null)} okText="Gắn phiếu" confirmLoading={busy}
+      okButtonProps={{ disabled: !linkTicketId }}
+      onOk={() => updateAppointment(linkingAppointment.id,
+        { trangThai: 'DA_TIEP_NHAN', phieuId: linkTicketId })}>
+      <Text>Tiếp nhận máy trước, sau đó chọn phiếu của khách {linkingAppointment?.tenKhachHang}.</Text>
+      <Select style={{ width: '100%', marginTop: 12 }} placeholder="Chọn phiếu cùng số điện thoại"
+        value={linkTicketId} onChange={setLinkTicketId}
+        options={tickets.filter((x) => x.soDienThoaiKhach === linkingAppointment?.soDienThoai)
+          .map((x) => ({ value: x.id, label: `${x.maPhieu} — ${x.tenThietBi}` }))} />
+    </Modal>
     <IntakeModal visible={intakeOpen} onCancel={() => setIntakeOpen(false)}
       onSubmitTicket={(ticket) => { loadTickets(); loadDetail(ticket.id); setIntakeOpen(false);
         setSelected({ id: ticket.id, maPhieu: ticket.code, trangThai: 'TIEP_NHAN' }); }} />
@@ -313,6 +476,7 @@ export default function ReceptionPage() {
       {selected && <Space direction="vertical" style={{ width: '100%' }}>
         <Text>Trạng thái: <Tag>{selected.trangThai}</Tag> · {selected.tenThietBi} · {selected.soDienThoaiKhach}</Text>
         <Tabs items={[
+          { key: 'operations', label: 'Điều phối · ảnh · hủy phiếu', children: operationsTab },
           { key: 'quote', label: 'Báo giá', children: quoteTab },
           { key: 'finance', label: 'Hóa đơn · thu tiền · bàn giao', children: financeTab },
           { key: 'warranty', label: 'Bảo hành khách', children: warrantyTab },
