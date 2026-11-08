@@ -30,3 +30,21 @@ body {
 .role-select .ant-select-selection-item {
   line-height: 30px !important;
 }
+
+@media print {
+  @page { size: A5 portrait; margin: 10mm; }
+
+  body * { visibility: hidden !important; }
+
+  #intake-print-receipt,
+  #intake-print-receipt * { visibility: visible !important; }
+
+  #intake-print-receipt {
+    position: fixed !important;
+    inset: 0 auto auto 0;
+    width: 100% !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+}

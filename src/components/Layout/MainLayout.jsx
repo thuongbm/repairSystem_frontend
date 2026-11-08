@@ -60,6 +60,12 @@ const MainLayout = () => {
       label: 'Quản trị nhân sự',
       roles: ['admin'],
     },
+    {
+      key: 'finance',
+      icon: <DollarOutlined />,
+      label: 'Đối soát tài chính',
+      roles: ['admin'],
+    },
   ];
 
   // Lọc menu theo vai trò người dùng

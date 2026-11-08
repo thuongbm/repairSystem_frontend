@@ -12,6 +12,8 @@ import {
   InputNumber,
   DatePicker,
   Card,
+  Alert,
+  Space,
   Tag,
   Divider,
   message
@@ -27,6 +29,7 @@ import {
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
+import IntakeConfirmationPanel from './IntakeConfirmationPanel';
 
 const COMMON_ISSUES = [
   'Mất nguồn / Không bật lên',
@@ -52,8 +55,29 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
   const [selectedIssueTags, setSelectedIssueTags] = useState([]);
   const [previewTicket, setPreviewTicket] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [lookingUpDevice, setLookingUpDevice] = useState(false);
+  const [foundDevice, setFoundDevice] = useState(null);
+  const [reusedDevice, setReusedDevice] = useState(null);
   const [technicians, setTechnicians] = useState([]);
   const [receptionists, setReceptionists] = useState([]);
+  const serialValue = Form.useWatch('serial', form);
+
+  const checklistFields = [
+    { name: 'manHinh', label: 'Màn hình', options: [
+      ['BINH_THUONG', 'Bình thường'], ['TRAY_XUOC', 'Trầy xước'],
+      ['VO_HONG', 'Vỡ / hỏng'], ['KHONG_KIEM_TRA', 'Chưa kiểm tra']] },
+    { name: 'voMay', label: 'Vỏ máy', options: [
+      ['BINH_THUONG', 'Bình thường'], ['TRAY_XUOC', 'Trầy xước'],
+      ['VO_HONG', 'Vỡ / hỏng'], ['KHONG_KIEM_TRA', 'Chưa kiểm tra']] },
+    { name: 'nguon', label: 'Nguồn', options: [
+      ['BAT_DUOC', 'Bật được'], ['KHONG_BAT_DUOC', 'Không bật được'],
+      ['KHONG_KIEM_TRA', 'Chưa kiểm tra']] },
+    { name: 'temOc', label: 'Tem / ốc', options: [
+      ['NGUYEN_VEN', 'Nguyên vẹn'], ['HONG_THIEU', 'Hỏng / thiếu'],
+      ['KHONG_KIEM_TRA', 'Chưa kiểm tra']] },
+    { name: 'dauHieuNuoc', label: 'Dấu hiệu vào nước', options: [
+      ['CO', 'Có'], ['KHONG', 'Không'], ['KHONG_KIEM_TRA', 'Chưa kiểm tra']] },
+  ];
 
   // Danh sách KTV thật (kèm số ca đang làm) để phân công khi tiếp nhận
   useEffect(() => {
@@ -90,6 +114,34 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
     }
   };
 
+  const lookupDevice = async () => {
+    const serial = form.getFieldValue('serial')?.trim();
+    if (!serial) { message.warning('Nhập serial trước khi tra cứu máy cũ.'); return; }
+    setLookingUpDevice(true);
+    setFoundDevice(null);
+    try {
+      const result = (await api.traCuuThietBiTheoSerial(serial)).data;
+      setFoundDevice(result);
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Không tra cứu được thiết bị.');
+    } finally { setLookingUpDevice(false); }
+  };
+
+  const useExistingDevice = () => {
+    if (!foundDevice) return;
+    form.setFieldsValue({
+      thietBiId: foundDevice.thietBiId,
+      customerName: foundDevice.customerName,
+      phone: foundDevice.phone,
+      email: foundDevice.email || undefined,
+      deviceType: foundDevice.loaiMay,
+      deviceName: foundDevice.tenThietBi,
+      serial: foundDevice.soSerial,
+    });
+    setReusedDevice(foundDevice);
+    setFoundDevice(null);
+  };
+
   const handleFinish = async (values) => {
     setSubmitting(true);
     try {
@@ -99,6 +151,10 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
       ]
         .filter(Boolean)
         .join('; ');
+      if (!combinedIssues) {
+        message.warning('Chọn ít nhất một hiện tượng hoặc ghi lỗi khách mô tả.');
+        return;
+      }
 
       // Thông tin chưa có cột riêng được lưu vào ghi chú phiếu.
       const ghiChuParts = [];
@@ -116,11 +172,14 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         deviceType: values.deviceType,
         deviceName: values.deviceName?.trim(),
         soSerial: values.serial?.trim() || null,
+        lyDoKhongSerial: values.serial?.trim() ? null : values.noSerialReason?.trim(),
         kyThuatVienId: values.technician || null,
         leTanId: user?.role === 'admin' ? values.leTanId : null,
-        tinhTrangLoi: combinedIssues || 'Khách yêu cầu kiểm tra tổng quát',
-        tinhTrangNgoaiQuan: values.condition?.trim() || null,
-        phuKienKemTheo: values.accessories?.length > 0 ? values.accessories.join(', ') : null,
+        tinhTrangLoi: combinedIssues,
+        tinhTrangNgoaiQuan: values.condition?.trim(),
+        phuKienKemTheo: values.accessories?.length > 0
+          ? values.accessories.join(', ') : 'KHONG_CO',
+        checklistTiepNhan: values.checklist,
         matKhauMay: values.passcode?.trim() || null,
         ngayHenTra: values.appointmentDate ? values.appointmentDate.toISOString() : null,
         ghiChu: ghiChuParts.length > 0 ? ghiChuParts.join('; ') : null,
@@ -157,10 +216,11 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         deviceType: values.deviceType,
         device: values.deviceName,
         serial: values.serial || 'Chưa cung cấp',
-        passcode: values.passcode || 'Không có',
+        noSerialReason: values.serial?.trim() ? null : values.noSerialReason?.trim(),
+        checklist: values.checklist,
         accessories: values.accessories || [],
-        condition: values.condition || 'Bình thường, có xước nhẹ',
-        customerIssue: combinedIssues || 'Khách yêu cầu kiểm tra tổng quát',
+        condition: values.condition,
+        customerIssue: combinedIssues,
         receiveDate: new Date().toLocaleDateString('vi-VN', {
           day: '2-digit',
           month: '2-digit',
@@ -181,7 +241,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
 
       setPreviewTicket(newTicket);
       onSubmitTicket(newTicket);
-      message.success(`Đã tiếp nhận thành công phiếu sửa chữa ${newTicket.code}!`);
+      message.success(`Đã tạo phiếu ${newTicket.code}. Hãy tải ảnh và ghi nhận biên nhận đã ký.`);
     } catch (err) {
       console.error(err);
       message.error(
@@ -200,6 +260,8 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
 
   const handleCloseAll = () => {
     setPreviewTicket(null);
+    setFoundDevice(null);
+    setReusedDevice(null);
     form.resetFields();
     setSelectedIssueTags([]);
     onCancel();
@@ -257,8 +319,9 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             ]
       }
     >
-      {previewTicket ? (
+      {previewTicket ? (<>
         <Card
+          id="intake-print-receipt"
           size="small"
           style={{
             border: '2px dashed #1677ff',
@@ -268,8 +331,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           }}
         >
           <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-            <h3 style={{ margin: 0, color: '#1677ff' }}>TRUNG TÂM SỬA CHỮA CÔNG NGHỆ TECHFIX</h3>
-            <div style={{ fontSize: '12px', color: '#8c8c8c' }}>Hotline: 1900 6868 • Địa chỉ: 123 Cầu Giấy, Hà Nội</div>
+            <h3 style={{ margin: 0, color: '#1677ff' }}>BIÊN NHẬN TIẾP NHẬN THIẾT BỊ</h3>
             <h4 style={{ margin: '8px 0 2px 0', textTransform: 'uppercase' }}>
               BIÊN NHẬN THIẾT BỊ BẢO TRÌ & SỬA CHỮA
             </h4>
@@ -283,7 +345,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               <div><strong>Khách hàng:</strong> {previewTicket.customer} ({previewTicket.phone})</div>
               <div><strong>Thiết bị:</strong> {previewTicket.device} (Loại: {previewTicket.deviceType})</div>
               <div><strong>Số Serial/IMEI:</strong> {previewTicket.serial}</div>
-              <div><strong>Mật khẩu máy:</strong> {previewTicket.passcode}</div>
+              {previewTicket.noSerialReason && <div><strong>Không có serial:</strong> {previewTicket.noSerialReason}</div>}
             </Col>
             <Col span={12}>
               <div><strong>Thời gian tiếp nhận:</strong> {previewTicket.receiveDate}</div>
@@ -302,6 +364,11 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           <div>
             <strong>Tình trạng ngoại quan:</strong> {previewTicket.condition}
           </div>
+          <div><strong>Checklist:</strong> {checklistFields.map((field) => {
+            const value = previewTicket.checklist?.[field.name];
+            const label = field.options.find(([code]) => code === value)?.[1] || value;
+            return `${field.label}: ${label}`;
+          }).join('; ')}</div>
           <div style={{ marginTop: '4px', background: '#fffbe6', padding: '6px 10px', borderRadius: '4px', border: '1px solid #ffe58f' }}>
             <strong>Mô tả lỗi ban đầu của khách:</strong> {previewTicket.customerIssue}
           </div>
@@ -309,8 +376,19 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '12px', fontStyle: 'italic', textAlign: 'center' }}>
             * Khách hàng vui lòng giữ biên nhận này để đối chiếu khi nhận lại máy. Mọi can thiệp phát sinh sẽ được KTV gọi điện xin duyệt trước khi xử lý.
           </div>
+          <Row style={{ marginTop: 24, textAlign: 'center' }}>
+            <Col span={12}><strong>Khách hàng xác nhận</strong><br /><small>(Ký, ghi rõ họ tên)</small>
+              <div style={{ height: 65 }} /></Col>
+            <Col span={12}><strong>Nhân viên tiếp nhận</strong><br /><small>(Ký, ghi rõ họ tên)</small></Col>
+          </Row>
         </Card>
-      ) : (
+        <Alert style={{ marginTop: 12 }} type="info" showIcon
+          message="In biên nhận, để khách kiểm tra và ký, sau đó tải ảnh đã ký lên hệ thống." />
+        <div style={{ marginTop: 12 }}>
+          <IntakeConfirmationPanel ticketId={previewTicket.id} ticketStatus="TIEP_NHAN"
+            onConfirmed={() => onSubmitTicket(previewTicket)} />
+        </div>
+      </>) : (
         <Form
           form={form}
           layout="vertical"
@@ -318,11 +396,19 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             deviceType: 'Laptop',
             priority: 'Bình thường',
             deposit: 0,
-            condition: 'Máy có trầy xước nhẹ mặt đáy, màn hình nguyên vẹn',
+            accessories: [],
           }}
           style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '8px' }}
           onFinish={handleFinish}
+          onValuesChange={(changed) => {
+            if (Object.hasOwn(changed, 'serial')) {
+              form.setFieldValue('thietBiId', null);
+              setFoundDevice(null);
+              setReusedDevice(null);
+            }
+          }}
         >
+          <Form.Item name="thietBiId" hidden><Input /></Form.Item>
           {user?.role === 'admin' && <Form.Item name="leTanId" label="Lễ tân tiếp nhận"
             rules={[{ required: true, message: 'Chọn lễ tân để tiếp nhận.' }]}>
             <Select options={receptionists.map((x) => ({ value: x.id, label: x.hoTen }))} />
@@ -351,7 +437,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="email" label={<span style={{ fontWeight: 600 }}>Email (Nhận hóa đơn điện tử)</span>}>
+              <Form.Item name="email" label={<span style={{ fontWeight: 600 }}>Email liên hệ</span>}>
                 <Input placeholder="VD: nam.nguyen@gmail.com" />
               </Form.Item>
             </Col>
@@ -391,6 +477,23 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             </Col>
           </Row>
 
+          <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
+            <Button onClick={lookupDevice} loading={lookingUpDevice}>Tra cứu máy đã sửa theo serial</Button>
+            {foundDevice && <Alert type="info" showIcon
+              message={`${foundDevice.maThietBi} — ${foundDevice.tenThietBi}`}
+              description={<Space direction="vertical">
+                <span>Hồ sơ khách: {foundDevice.customerName} · {foundDevice.phone}. Hãy xác minh khách trước khi dùng hồ sơ cũ.</span>
+                <Button type="primary" onClick={useExistingDevice}>Dùng hồ sơ máy này để tạo phiếu mới</Button>
+              </Space>} />}
+            {reusedDevice && <Alert type="success" showIcon
+              message={`Đang dùng máy cũ ${reusedDevice.maThietBi}; hệ thống sẽ tạo phiếu sửa mới.`} />}
+          </Space>
+
+          {!serialValue?.trim() && <Form.Item name="noSerialReason" label="Lý do không có serial"
+            rules={[{ required: true, whitespace: true, message: 'Nhập lý do để dùng mã thiết bị nội bộ.' }]}>
+            <Input maxLength={250} placeholder="Ví dụ: tem serial đã bong, không đọc được" />
+          </Form.Item>}
+
           <Row gutter={16}>
             <Col xs={24} md={8}>
               <Form.Item name="passcode" label={<span style={{ fontWeight: 600 }}>Mật khẩu mở máy (Để KTV test QC)</span>}>
@@ -398,8 +501,9 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               </Form.Item>
             </Col>
             <Col xs={24} md={16}>
-              <Form.Item name="condition" label={<span style={{ fontWeight: 600 }}>Tình trạng ngoại quan lúc nhận</span>}>
-                <Input placeholder="Ghi nhận xước xát, cấn móp, tem ốc còn nguyên..." />
+              <Form.Item name="condition" label={<span style={{ fontWeight: 600 }}>Tình trạng ngoại quan lúc nhận</span>}
+                rules={[{ required: true, whitespace: true, message: 'Ghi tình trạng thực tế lúc nhận.' }]}>
+                <Input maxLength={500} placeholder="Ghi nhận xước xát, cấn móp, tem ốc còn nguyên..." />
               </Form.Item>
             </Col>
           </Row>
@@ -407,6 +511,15 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           <Form.Item name="accessories" label={<span style={{ fontWeight: 600 }}>Phụ kiện gửi kèm theo máy:</span>}>
             <Checkbox.Group options={ACCESSORY_OPTIONS} />
           </Form.Item>
+
+          <Divider orientation="left">Checklist tình trạng đầu vào</Divider>
+          <Row gutter={12}>{checklistFields.map((field) => <Col xs={24} md={12} key={field.name}>
+            <Form.Item name={['checklist', field.name]} label={field.label}
+              rules={[{ required: true, message: `Chọn tình trạng ${field.label.toLowerCase()}.` }]}>
+              <Select placeholder="Chọn tình trạng thực tế"
+                options={field.options.map(([value, label]) => ({ value, label }))} />
+            </Form.Item>
+          </Col>)}</Row>
 
           {/* Mô tả lỗi ban đầu */}
           <Divider orientation="left" style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#1677ff' }}>

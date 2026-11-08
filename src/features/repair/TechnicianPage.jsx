@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import VatTuTab from './VatTuTab';
+import WorkItemsPanel from './WorkItemsPanel';
 import TicketPhotos from '../../components/TicketPhotos';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
@@ -12,6 +13,10 @@ const transitions = {
   CHO_LINH_KIEN: ['DANG_SUA'],
 };
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
+const parseChecklist = (value) => {
+  try { return JSON.parse(value || 'null'); }
+  catch { return null; }
+};
 
 export default function TechnicianPage() {
   const { user } = useAuth();
@@ -19,6 +24,7 @@ export default function TechnicianPage() {
   const [tickets, setTickets] = useState([]);
   const [selected, setSelected] = useState(null);
   const [issued, setIssued] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [diagnosis, setDiagnosis] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -36,6 +42,12 @@ export default function TechnicianPage() {
       .catch((e) => message.error(errorText(e)));
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    api.getKyThuatVienPhanCong().then((r) => setTechnicians(r.data || []))
+      .catch((e) => message.error(errorText(e)));
+  }, [user?.role]);
 
   const open = async (ticket) => {
     setSelected(ticket);
@@ -95,7 +107,8 @@ export default function TechnicianPage() {
   };
 
   const activeTicket = ['TIEP_NHAN', 'DANG_SUA', 'CHO_LINH_KIEN'].includes(selected?.trangThai);
-  const canDiagnose = user?.role === 'technician' && activeTicket;
+  const canDiagnose = user?.role === 'technician' && selected?.laKtvChinh && activeTicket;
+  const intakeChecklist = parseChecklist(selected?.checklistTiepNhanJson);
 
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
     <Title level={3}>Bàn làm việc kỹ thuật viên</Title>
@@ -121,18 +134,28 @@ export default function TechnicianPage() {
     <Modal open={!!selected} title={selected?.maPhieu} onCancel={() => setSelected(null)}
       styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       onOk={() => form.submit()} okText="Lưu trạng thái" confirmLoading={busy}
-      okButtonProps={{ disabled: !(transitions[selected?.trangThai] || []).length ||
+      okButtonProps={{ disabled: (user?.role === 'technician' && !selected?.laKtvChinh)
+        || !(transitions[selected?.trangThai] || []).length ||
         (selected?.trangThai === 'TIEP_NHAN' &&
           (!selected?.ktvNhanLuc || !selected?.ketQuaKiemTra || selected?.baoGiaMoiNhatTrangThai !== 'DA_DUYET')) }}>
       {selected && <Space direction="vertical" style={{ width: '100%' }}>
         <Card size="small">
           <Text strong>{selected.tenThietBi}</Text><br />
+          <Text>Serial/IMEI: {selected.soSerialThietBi || 'Không có'}</Text><br />
+          {selected.lyDoKhongSerial && <><Text>Lý do thiếu serial: {selected.lyDoKhongSerial}</Text><br /></>}
           <Text>Lỗi: {selected.tinhTrangLoi}</Text><br />
           <Text>Ngoại quan: {selected.tinhTrangNgoaiQuan || '—'}</Text><br />
-          <Text>Phụ kiện gửi kèm: {selected.phuKienKemTheo || '—'}</Text>
+          <Text>Phụ kiện gửi kèm: {selected.phuKienKemTheo === 'KHONG_CO'
+            ? 'Không có' : selected.phuKienKemTheo || '—'}</Text>
+          {selected.apDungKiemSoatTiepNhan && <><br /><Text>Checklist: màn hình {intakeChecklist?.manHinh || '—'},
+            vỏ {intakeChecklist?.voMay || '—'}, nguồn {intakeChecklist?.nguon || '—'},
+            tem/ốc {intakeChecklist?.temOc || '—'}, nước {intakeChecklist?.dauHieuNuoc || '—'}</Text></>}
         </Card>
         <Card size="small" title="Nhận máy và kiểm tra ban đầu"
           extra={<Button size="small" onClick={() => refreshSelected().catch((e) => message.error(errorText(e)))}>Làm mới</Button>}>
+          {selected.apDungKiemSoatTiepNhan && !selected.ktvNhanLuc &&
+            <Alert type="info" showIcon style={{ marginBottom: 12 }}
+              message="Lễ tân cần hoàn tất ảnh và biên nhận đã ký trước khi KTV nhận máy." />}
           {selected.ktvNhanLuc
             ? <Text type="success">Đã xác nhận nhận máy lúc {dayjs(selected.ktvNhanLuc).format('DD/MM/YYYY HH:mm')}</Text>
             : canDiagnose
@@ -158,6 +181,7 @@ export default function TechnicianPage() {
             { title: 'Serial', dataIndex: 'soSerial', render: (v) => v || '—' },
           ]} />
         </Card>
+        <WorkItemsPanel ticketId={selected.id} technicians={technicians} issued={issued} />
         <TicketPhotos key={selected.id} ticketId={selected.id} role={user?.role} ticketStatus={selected.trangThai} />
         <Form form={form} layout="vertical" onFinish={submit}>
           <Form.Item name="trangThai" label="Chuyển sang" rules={[{ required: true }]}>

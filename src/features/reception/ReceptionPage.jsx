@@ -3,13 +3,20 @@ import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber, Moda
   Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import IntakeModal from './IntakeModal';
+import IntakeConfirmationPanel from './IntakeConfirmationPanel';
+import OutgoingInvoicePanel from './OutgoingInvoicePanel';
 import TicketPhotos from '../../components/TicketPhotos';
+import WorkItemsPanel from '../repair/WorkItemsPanel';
 import { useAuth } from '../../context/useAuth';
 import { api } from '../../services/api';
 
 const { Title, Text } = Typography;
 const money = (n) => `${Number(n || 0).toLocaleString('vi-VN')} ₫`;
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
+const parseChecklist = (value) => {
+  try { return JSON.parse(value || 'null'); }
+  catch { return null; }
+};
 const warrantyNext = {
   TIEP_NHAN: ['DANG_KIEM_TRA'], DANG_KIEM_TRA: ['CHAP_NHAN', 'TU_CHOI'],
   CHAP_NHAN: ['DANG_XU_LY'], DANG_XU_LY: ['HOAN_THANH'], HOAN_THANH: ['DA_TRA'],
@@ -41,6 +48,13 @@ export default function ReceptionPage() {
   const [finance, setFinance] = useState(null);
   const [commitments, setCommitments] = useState([]);
   const [claims, setClaims] = useState([]);
+  const [intakeConfirmation, setIntakeConfirmation] = useState(null);
+  const [approvingClaim, setApprovingClaim] = useState(null);
+  const [analysisClaim, setAnalysisClaim] = useState(null);
+  const [linkingClaim, setLinkingClaim] = useState(null);
+  const [approvalForm] = Form.useForm();
+  const [analysisForm] = Form.useForm();
+  const [linkClaimForm] = Form.useForm();
   const [quoteLines, setQuoteLines] = useState([]);
   const [quoteLineForm] = Form.useForm();
   const [quoteForm] = Form.useForm();
@@ -71,13 +85,18 @@ export default function ReceptionPage() {
 
   const loadDetail = useCallback(async (id) => {
     try {
-      const [q, s, x, f, c, w] = await Promise.all([
+      const [q, s, x, f, c, w, intake] = await Promise.all([
         api.getBaoGiaV3(id), api.getDichVuPhieuV3(id), api.getXuatKhoPhieu(id),
         api.getTaiChinhV3(id), api.getCamKetBaoHanhV3(id),
-        api.getBaoHanhKhachV3({ phieuGocId: id }),
+        api.getBaoHanhKhachV3({ phieuId: id }),
+        api.getXacNhanTiepNhan(id).catch((e) => {
+          if (e.response?.status === 404) return { data: null };
+          throw e;
+        }),
       ]);
       setQuotes(q.data || []); setServiceLines(s.data || []); setExports(x.data || []);
       setFinance(f.data); setCommitments(c.data || []); setClaims(w.data || []);
+      setIntakeConfirmation(intake.data || null);
     } catch (e) { message.error(errorText(e)); }
   }, []);
 
@@ -117,6 +136,7 @@ export default function ReceptionPage() {
 
   const openTicket = (row) => {
     setSelected(row);
+    setIntakeConfirmation(null);
     assignmentForm.setFieldsValue({ kyThuatVienId: row.kyThuatVienId ?? null });
     returnDateForm.setFieldsValue({ ngayHenTra: row.ngayHenTra ? dayjs(row.ngayHenTra) : null });
     setCancelReason('');
@@ -253,6 +273,7 @@ export default function ReceptionPage() {
         { title: 'Thành tiền', dataIndex: 'thanhTien', render: money },
       ]} />
     </Card>}
+    {finance?.hoaDon && <OutgoingInvoicePanel invoice={finance.hoaDon} />}
     <Card size="small" title="Ghi nhận thu / hoàn tiền">
       <Form form={paymentForm} layout="inline" onFinish={(v) => perform(async () => {
         await api.ghiGiaoDichV3(selected.id, { ...v, hoaDonId: finance?.hoaDon?.id || null });
@@ -287,6 +308,10 @@ export default function ReceptionPage() {
     {finance?.banGiao && <Tag color="green">Đã bàn giao cho {finance.banGiao.tenNguoiNhan}</Tag>}
   </Space>;
 
+  const warrantyRepairTicketOptions = selected ? tickets.filter((x) =>
+    x.id !== selected.id && x.thietBiId === selected.thietBiId).map((x) => ({
+    value: x.id, label: x.maPhieu,
+  })) : [];
   const warrantyTab = <Space direction="vertical" style={{ width: '100%' }}>
     <Card size="small" title="Cam kết bảo hành sau bàn giao">
       <Form form={commitmentForm} layout="inline" onFinish={(v) => perform(async () => {
@@ -319,18 +344,42 @@ export default function ReceptionPage() {
     <Card size="small" title="Tiếp nhận khách quay lại bảo hành">
       <Form form={claimForm} layout="inline" onFinish={(v) => perform(async () => {
         await api.taoBaoHanhKhachV3({ phieuGocId: selected.id, camKetId: v.camKetId || null,
-          phieuSuaBaoHanhId: null, loiKhachBao: v.loiKhachBao });
+          phieuSuaBaoHanhId: v.phieuSuaBaoHanhId || null, loiKhachBao: v.loiKhachBao });
         claimForm.resetFields();
       }, 'Đã tiếp nhận bảo hành.')} style={{ gap: 8 }}>
         <Form.Item name="camKetId"><Select allowClear style={{ width: 220 }} placeholder="Cam kết (nếu có)"
           options={commitments.map((x) => ({ value: x.id, label: `#${x.id} — ${x.loai}` }))} /></Form.Item>
         <Form.Item name="loiKhachBao" rules={[{ required: true }]}><Input style={{ width: 300 }} placeholder="Lỗi khách báo" maxLength={1000} /></Form.Item>
+        <Form.Item name="phieuSuaBaoHanhId"><Select allowClear style={{ width: 220 }}
+          placeholder="Phiếu sửa lại (nếu có)" options={warrantyRepairTicketOptions} /></Form.Item>
         <Button htmlType="submit" disabled={selected?.trangThai !== 'DA_TRA'} loading={busy}>Tiếp nhận</Button>
       </Form>
       <Table size="small" style={{ marginTop: 12 }} dataSource={claims} rowKey="id" pagination={{ pageSize: 5 }} columns={[
         { title: 'Mã', dataIndex: 'id', render: (v) => `#${v}` },
         { title: 'Lỗi khách báo', dataIndex: 'loiKhachBao' },
         { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+        { title: 'Lần bảo hành', render: (_, row) => row.pheDuyetLap?.lanThu || '—' },
+        { title: 'Phiếu sửa lại', render: (_, row) => row.phieuSuaBaoHanhId
+          ? tickets.find((x) => x.id === row.phieuSuaBaoHanhId)?.maPhieu || `#${row.phieuSuaBaoHanhId}`
+          : <Button size="small" onClick={() => { setLinkingClaim(row); linkClaimForm.resetFields(); }}>
+            Liên kết phiếu sửa</Button> },
+        { title: 'Nguyên nhân / chi phí', render: (_, row) => <Space>
+          <Text>{row.phanTich ? `${row.phanTich.benChiuChiPhi} · ${money(row.phanTich.chiPhiThucTe)}` : 'Chưa ghi'}</Text>
+          <Button size="small" onClick={() => {
+            setAnalysisClaim(row);
+            analysisForm.setFieldsValue(row.phanTich || { chiPhiDuKien: 0 });
+          }}>Phân tích</Button>
+        </Space> },
+        { title: 'Duyệt lặp lại', render: (_, row) => <Space>
+          <Tag color={row.pheDuyetLap?.trangThai === 'CHO_DUYET' ? 'orange'
+            : row.pheDuyetLap?.trangThai === 'TU_CHOI' ? 'red' : 'green'}>
+            {row.pheDuyetLap?.trangThai || '—'}
+          </Tag>
+          {user?.role === 'admin' && row.pheDuyetLap?.trangThai === 'CHO_DUYET' &&
+            <Button size="small" onClick={() => { setApprovingClaim(row); approvalForm.resetFields(); }}>
+              Xem và duyệt
+            </Button>}
+        </Space> },
       ]} />
       <Form form={statusForm} layout="inline" onFinish={(v) => perform(() =>
         api.doiTrangThaiBaoHanhKhachV3(v.claimId, { trangThai: v.trangThai,
@@ -342,7 +391,9 @@ export default function ReceptionPage() {
         <Form.Item noStyle shouldUpdate={(p, c) => p.claimId !== c.claimId}>{({ getFieldValue }) => {
           const claim = claims.find((x) => x.id === getFieldValue('claimId'));
           return <Form.Item name="trangThai" rules={[{ required: true }]}><Select style={{ width: 190 }} placeholder="Bước tiếp theo"
-            options={(warrantyNext[claim?.trangThai] || []).map((x) => ({ value: x, label: x }))} /></Form.Item>;
+            options={(claim?.pheDuyetLap?.trangThai === 'CHO_DUYET'
+              || claim?.pheDuyetLap?.trangThai === 'TU_CHOI' ? []
+              : warrantyNext[claim?.trangThai] || []).map((x) => ({ value: x, label: x }))} /></Form.Item>;
         }}</Form.Item>
         <Form.Item name="ketLuan"><Input placeholder="Kết luận / lý do từ chối" maxLength={1000} /></Form.Item>
         <Form.Item name="ketQuaXuLy"><Input placeholder="Kết quả xử lý" maxLength={1000} /></Form.Item>
@@ -351,7 +402,20 @@ export default function ReceptionPage() {
     </Card>
   </Space>;
 
+  const intakeChecklist = parseChecklist(selected?.checklistTiepNhanJson);
+
   const operationsTab = <Space direction="vertical" style={{ width: '100%' }}>
+    {selected?.apDungKiemSoatTiepNhan && <Card size="small" title="Tình trạng ghi nhận khi tiếp nhận">
+      <Text><b>Serial/IMEI:</b> {selected.soSerialThietBi || 'Không có serial'}</Text><br />
+      <Text><b>Lỗi khách báo:</b> {selected.tinhTrangLoi || '—'}</Text><br />
+      <Text><b>Ngoại quan:</b> {selected.tinhTrangNgoaiQuan || '—'}</Text><br />
+      <Text><b>Phụ kiện:</b> {selected.phuKienKemTheo === 'KHONG_CO'
+        ? 'Không có' : selected.phuKienKemTheo || '—'}</Text><br />
+      {selected.lyDoKhongSerial && <><Text><b>Lý do thiếu serial:</b> {selected.lyDoKhongSerial}</Text><br /></>}
+      <Text><b>Checklist:</b> màn hình {intakeChecklist?.manHinh || '—'}, vỏ {intakeChecklist?.voMay || '—'},
+        nguồn {intakeChecklist?.nguon || '—'}, tem/ốc {intakeChecklist?.temOc || '—'},
+        dấu hiệu nước {intakeChecklist?.dauHieuNuoc || '—'}</Text>
+    </Card>}
     <Card size="small" title="Bàn giao cho KTV và kết quả kiểm tra"
       extra={<Button size="small" onClick={() => { loadTickets(); loadDetail(selected.id); }}>Làm mới</Button>}>
       <Text>KTV phụ trách: {selected?.tenKyThuatVien || 'Chưa phân công'}</Text><br />
@@ -381,7 +445,13 @@ export default function ReceptionPage() {
           loading={busy}>Lưu hẹn trả</Button>
       </Form>
     </Card>
-    <TicketPhotos key={selected?.id} ticketId={selected?.id} role={user?.role} ticketStatus={selected?.trangThai} />
+    {selected?.apDungKiemSoatTiepNhan &&
+      <IntakeConfirmationPanel key={selected?.id} ticketId={selected.id}
+        ticketStatus={selected.trangThai}
+        onConfirmed={() => { loadDetail(selected.id); loadTickets(); }} />}
+    <TicketPhotos key={`${selected?.id}-${!!intakeConfirmation}`}
+      ticketId={selected?.id} role={user?.role} ticketStatus={selected?.trangThai}
+      intakeConfirmed={!!intakeConfirmation} />
     {['TIEP_NHAN', 'DANG_SUA', 'CHO_LINH_KIEN'].includes(selected?.trangThai) &&
       <Card size="small" title="Hủy phiếu">
         <Alert type="warning" showIcon style={{ marginBottom: 12 }}
@@ -457,6 +527,56 @@ export default function ReceptionPage() {
         message={<Text copyable>{linkCode.maLienKet}</Text>}
         description={`Hết hạn: ${dayjs(linkCode.hetHan).format('DD/MM/YYYY HH:mm')}. Chỉ đưa mã cho khách đã xác minh.`} />}
     </Modal>
+    <Modal open={!!linkingClaim} title={`Liên kết phiếu sửa bảo hành #${linkingClaim?.id || ''}`}
+      onCancel={() => setLinkingClaim(null)} footer={null} destroyOnHidden>
+      <Form form={linkClaimForm} layout="vertical" onFinish={async (v) => {
+        setBusy(true);
+        try {
+          await api.lienKetPhieuSuaBaoHanhV3(linkingClaim.id, v);
+          message.success('Đã liên kết phiếu sửa với lần bảo hành.');
+          setLinkingClaim(null);
+          await loadDetail(selected.id);
+        } catch (e) { message.error(errorText(e)); }
+        finally { setBusy(false); }
+      }}>
+        <Form.Item name="phieuSuaBaoHanhId" label="Phiếu sửa cùng thiết bị" rules={[{ required: true }]}>
+          <Select showSearch optionFilterProp="label" options={tickets.filter((x) =>
+            x.id !== linkingClaim?.phieuGocId && x.thietBiId === linkingClaim?.thietBiId
+            && x.trangThai !== 'HUY').map((x) => ({ value: x.id, label: x.maPhieu }))} />
+        </Form.Item>
+        <Button type="primary" htmlType="submit" loading={busy}>Liên kết</Button>
+      </Form>
+    </Modal>
+    <Modal open={!!analysisClaim} title={`Phân tích bảo hành #${analysisClaim?.id || ''}`}
+      onCancel={() => setAnalysisClaim(null)} footer={null} destroyOnHidden>
+      <Alert type="info" showIcon style={{ marginBottom: 12 }}
+        message="Ghi nguyên nhân và bên chịu chi phí cho từng lần khách quay lại"
+        description="Chi phí thực tế cần được ghi trước khi đánh dấu hoàn thành bảo hành." />
+      <Form form={analysisForm} layout="vertical" onFinish={async (v) => {
+        setBusy(true);
+        try {
+          await api.phanTichChiPhiBaoHanhV3(analysisClaim.id, {
+            ...v, chiPhiThucTe: v.chiPhiThucTe ?? null,
+          });
+          message.success('Đã lưu phân tích bảo hành.');
+          setAnalysisClaim(null);
+          await loadDetail(selected.id);
+        } catch (e) { message.error(errorText(e)); }
+        finally { setBusy(false); }
+      }}>
+        <Form.Item name="nguyenNhan" label="Nguyên nhân" rules={[{ required: true, whitespace: true }]}>
+          <Input.TextArea maxLength={1000} rows={3} /></Form.Item>
+        <Form.Item name="benChiuChiPhi" label="Bên chịu chi phí" rules={[{ required: true }]}>
+          <Select options={[{ value: 'CUA_HANG', label: 'Cửa hàng' },
+            { value: 'KHACH', label: 'Khách hàng' }, { value: 'NCC', label: 'Nhà cung cấp' },
+            { value: 'KTV', label: 'Kỹ thuật viên' }]} /></Form.Item>
+        <Form.Item name="chiPhiDuKien" label="Chi phí dự kiến" rules={[{ required: true }]}>
+          <InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+        <Form.Item name="chiPhiThucTe" label="Chi phí thực tế">
+          <InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+        <Button type="primary" htmlType="submit" loading={busy}>Lưu phân tích</Button>
+      </Form>
+    </Modal>
     <Modal open={!!linkingAppointment} title={`Gắn lịch #${linkingAppointment?.id || ''} với phiếu sửa`}
       onCancel={() => setLinkingAppointment(null)} okText="Gắn phiếu" confirmLoading={busy}
       okButtonProps={{ disabled: !linkTicketId }}
@@ -469,14 +589,40 @@ export default function ReceptionPage() {
           .map((x) => ({ value: x.id, label: `${x.maPhieu} — ${x.tenThietBi}` }))} />
     </Modal>
     <IntakeModal visible={intakeOpen} onCancel={() => setIntakeOpen(false)}
-      onSubmitTicket={(ticket) => { loadTickets(); loadDetail(ticket.id); setIntakeOpen(false);
-        setSelected({ id: ticket.id, maPhieu: ticket.code, trangThai: 'TIEP_NHAN' }); }} />
+      onSubmitTicket={() => { loadTickets(); }} />
+    <Modal open={!!approvingClaim} title={`Duyệt bảo hành lần ${approvingClaim?.pheDuyetLap?.lanThu || ''}`}
+      onCancel={() => setApprovingClaim(null)} footer={null} destroyOnHidden>
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+        message={approvingClaim?.loiKhachBao} description="Ghi nguyên nhân sơ bộ và lý do quyết định trước khi xử lý tiếp." />
+      <Form form={approvalForm} layout="vertical" onFinish={async (v) => {
+        setBusy(true);
+        try {
+          await api.duyetBaoHanhLapV3(approvingClaim.id, v);
+          message.success('Đã ghi quyết định bảo hành lặp lại.');
+          setApprovingClaim(null);
+          await loadDetail(selected.id);
+        } catch (e) { message.error(errorText(e)); }
+        finally { setBusy(false); }
+      }}>
+        <Form.Item name="quyetDinh" label="Quyết định" rules={[{ required: true }]}>
+          <Select options={[{ value: 'DA_DUYET', label: 'Chấp thuận' },
+            { value: 'TU_CHOI', label: 'Từ chối' }]} />
+        </Form.Item>
+        <Form.Item name="nguyenNhanSoBo" label="Nguyên nhân sơ bộ"
+          rules={[{ required: true, whitespace: true }]}><Input.TextArea maxLength={1000} /></Form.Item>
+        <Form.Item name="lyDoQuyetDinh" label="Lý do quyết định"
+          rules={[{ required: true, whitespace: true }]}><Input.TextArea maxLength={1000} /></Form.Item>
+        <Button type="primary" htmlType="submit" loading={busy}>Lưu quyết định</Button>
+      </Form>
+    </Modal>
     <Drawer open={!!selected} width="min(1100px, 100vw)" onClose={() => setSelected(null)}
       title={`${selected?.maPhieu || ''} — ${selected?.tenKhachHang || ''}`} destroyOnHidden>
       {selected && <Space direction="vertical" style={{ width: '100%' }}>
         <Text>Trạng thái: <Tag>{selected.trangThai}</Tag> · {selected.tenThietBi} · {selected.soDienThoaiKhach}</Text>
         <Tabs items={[
           { key: 'operations', label: 'Điều phối · ảnh · hủy phiếu', children: operationsTab },
+          { key: 'work', label: 'Công việc sửa chữa', children: <WorkItemsPanel
+            ticketId={selected.id} technicians={technicians} issued={exports} claims={claims} /> },
           { key: 'quote', label: 'Báo giá', children: quoteTab },
           { key: 'finance', label: 'Hóa đơn · thu tiền · bàn giao', children: financeTab },
           { key: 'warranty', label: 'Bảo hành khách', children: warrantyTab },

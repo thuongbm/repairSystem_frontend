@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import MainLayout from './components/Layout/MainLayout';
 import CustomerPortal from './features/customer/CustomerPortalPage';
 import Dashboard from './features/dashboard/DashboardPage';
+import FinancialReconciliation from './features/dashboard/FinancialReconciliationPage';
 import Reception from './features/reception/ReceptionPage';
 import Pricing from './features/catalog/PricingPage';
 import HR from './features/staff/StaffPage';
@@ -51,6 +52,7 @@ function App() {
               {/* Quản trị nhân sự (Chỉ Admin) */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route path="/hr" element={<HR />} />
+                <Route path="/finance" element={<FinancialReconciliation />} />
               </Route>
             </Route>
           </Route>

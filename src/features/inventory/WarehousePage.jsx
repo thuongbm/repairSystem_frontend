@@ -49,6 +49,9 @@ import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 import MauLinhKienModal from './MauLinhKienModal';
 import BaoHanhNccTab from './BaoHanhNccTab';
+import StockControlTab from './StockControlTab';
+import IncomingInvoicesPanel from './IncomingInvoicesPanel';
+import OperatingRulesPanel from './OperatingRulesPanel';
 
 const { Option } = Select;
 const { Text, Title } = Typography;
@@ -1612,6 +1615,22 @@ const WarehousePage = () => {
               children: <BaoHanhNccTab />,
             },
 
+            {
+              key: 'stock-control',
+              label: 'Kiểm kê & cách ly',
+              children: <StockControlTab />,
+            },
+            {
+              key: 'incoming-invoices',
+              label: 'Hóa đơn đầu vào',
+              children: <IncomingInvoicesPanel />,
+            },
+            ...(user?.role === 'admin' ? [{
+              key: 'operating-rules',
+              label: 'Quy tắc vận hành',
+              children: <OperatingRulesPanel />,
+            }] : []),
+
             // TAB 6: TRA CỨU & QUẢN LÝ SERIAL LINH KIỆN
             {
               key: 'serials',
@@ -1653,6 +1672,8 @@ const WarehousePage = () => {
                           <Option value="TRONG_KHO">Trong kho</Option>
                           <Option value="DA_XUAT">Đã xuất máy</Option>
                           <Option value="BAO_HANH">Đang bảo hành NCC</Option>
+                          <Option value="CACH_LY">Đang cách ly</Option>
+                          <Option value="THIEU_KIEM_KE">Thiếu khi kiểm kê</Option>
                           <Option value="THANH_LY">Đã thanh lý</Option>
                         </Select>
                         <Select

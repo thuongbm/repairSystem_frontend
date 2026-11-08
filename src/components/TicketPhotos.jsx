@@ -4,14 +4,16 @@ import { api } from '../services/api';
 
 const errorText = (e) => e.response?.data?.message || e.message || 'Không xử lý được ảnh.';
 
-export default function TicketPhotos({ ticketId, role, ticketStatus }) {
+export default function TicketPhotos({ ticketId, role, ticketStatus, intakeConfirmed = false }) {
   const [rows, setRows] = useState([]);
   const [file, setFile] = useState(null);
   const [kind, setKind] = useState(role === 'technician' ? 'SAU_SUA' : 'LUC_TIEP_NHAN');
   const [description, setDescription] = useState('');
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
-  const canDelete = ['admin', 'receptionist'].includes(role) && !['DA_TRA', 'HUY'].includes(ticketStatus);
+  const canDelete = ['admin', 'receptionist'].includes(role)
+    && !intakeConfirmed && !['DA_TRA', 'HUY'].includes(ticketStatus);
+  const uploadKind = intakeConfirmed && kind === 'LUC_TIEP_NHAN' ? 'KHAC' : kind;
 
   const reload = useCallback(async () => {
     if (!ticketId) return;
@@ -25,7 +27,7 @@ export default function TicketPhotos({ ticketId, role, ticketStatus }) {
   const upload = async () => {
     if (!file) { message.warning('Chọn ảnh trước khi tải lên.'); return; }
     const form = new FormData();
-    form.append('file', file); form.append('loai', kind); form.append('moTa', description);
+    form.append('file', file); form.append('loai', uploadKind); form.append('moTa', description);
     setBusy(true);
     try {
       await api.taiAnhPhieu(ticketId, form);
@@ -73,9 +75,9 @@ export default function TicketPhotos({ ticketId, role, ticketStatus }) {
             message.warning('Ảnh tối đa 5 MB.'); e.target.value = ''; setFile(null);
           } else setFile(chosen);
         }} />
-      <Select value={kind} onChange={setKind} style={{ width: 160 }} options={role === 'technician'
+      <Select value={uploadKind} onChange={setKind} style={{ width: 160 }} options={role === 'technician'
         ? [{ value: 'SAU_SUA', label: 'Trong/sau sửa' }, { value: 'KHAC', label: 'Khác' }]
-        : [{ value: 'LUC_TIEP_NHAN', label: 'Lúc tiếp nhận' },
+        : [...(intakeConfirmed ? [] : [{ value: 'LUC_TIEP_NHAN', label: 'Lúc tiếp nhận' }]),
           { value: 'SAU_SUA', label: 'Sau sửa' }, { value: 'KHAC', label: 'Khác' }]} />
       <Input style={{ width: 220 }} maxLength={255} placeholder="Mô tả ảnh"
         value={description} onChange={(e) => setDescription(e.target.value)} />
