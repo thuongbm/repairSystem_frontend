@@ -26,7 +26,7 @@ import {
 } from '@ant-design/icons';
 import { COMPATIBLE_PARTS_CATALOG } from './mockData';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
   const [searchText, setSearchText] = useState('');
@@ -92,7 +92,7 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
       };
 
       onAddRequisition(newReq);
-      message.success(`Đã tạo lệnh xuất kho ${newReq.requestCode} gắn liền phiếu ${newReq.repairJobCode}!`);
+      message.success(`Đã tạo lệnh xuất kho ${newReq.requestCode}`);
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -101,66 +101,64 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
 
   const catalogColumns = [
     {
-      title: 'Mã & Tên linh kiện',
+      title: 'Linh kiện',
       key: 'partInfo',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: '600', color: '#1f2937' }}>{record.name}</div>
-          <Space orientation="horizontal" size={4} style={{ marginTop: '4px' }}>
-            <Tag color="geekblue" style={{ fontFamily: 'monospace', fontSize: '11px' }}>
+          <div style={{ fontWeight: 500, color: '#0f172a' }}>{record.name}</div>
+          <Space size={4} style={{ marginTop: '3px' }}>
+            <Tag style={{ fontFamily: 'monospace', fontSize: '11px', background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569' }}>
               {record.code}
             </Tag>
-            <Tag color="cyan">{record.category}</Tag>
+            <Tag style={{ fontSize: '11px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b' }}>
+              {record.category}
+            </Tag>
           </Space>
         </div>
       ),
     },
     {
-      title: 'Thông số kỹ thuật chuẩn (Bus / Pinout / Socket)',
+      title: 'Thông số kỹ thuật',
       key: 'specs',
       render: (_, record) => (
         <div>
-          <div style={{ fontSize: '13px' }}>
-            <Text strong>Tốc độ/Bus: </Text>
-            <Text type="secondary">{record.busSpec}</Text>
+          <div style={{ fontSize: '12px', color: '#334155' }}>
+            <span style={{ color: '#64748b' }}>Bus:</span> {record.busSpec}
           </div>
-          <div style={{ fontSize: '12px', marginTop: '2px' }}>
-            <Text strong>Chân cắm: </Text>
-            <Text code>{record.socketPin}</Text>
+          <div style={{ fontSize: '12px', marginTop: '2px', color: '#334155' }}>
+            <span style={{ color: '#64748b' }}>Chân cắm:</span> <Text code style={{ fontSize: '11px' }}>{record.socketPin}</Text>
           </div>
         </div>
       ),
     },
     {
-      title: 'Độ tương thích mẫu máy',
+      title: 'Tương thích',
       key: 'compatibility',
       render: (_, record) => (
-        <div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {record.compatibleDevices.map((dev) => (
-              <Tag key={dev} style={{ fontSize: '11px', margin: 0, background: '#f5f5f5' }}>
-                {dev}
-              </Tag>
-            ))}
-          </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          {record.compatibleDevices.map((dev) => (
+            <Tag key={dev} style={{ fontSize: '11px', margin: 0, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569' }}>
+              {dev}
+            </Tag>
+          ))}
         </div>
       ),
     },
     {
-      title: 'Tồn kho & Vị trí',
+      title: 'Tồn kho & Giá',
       key: 'stock',
       render: (_, record) => (
         <div>
           <div>
             <Badge 
               status={record.stock > 5 ? 'success' : 'warning'} 
-              text={<Text strong>{record.stock} chiếc khả dụng</Text>} 
+              text={<span style={{ fontWeight: 500, fontSize: '13px', color: '#0f172a' }}>{record.stock} chiếc</span>} 
             />
           </div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '2px' }}>
-            📍 {record.location}
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+            {record.location}
           </div>
-          <div style={{ fontSize: '12px', color: '#0958d9', fontWeight: 500, marginTop: '2px' }}>
+          <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600, marginTop: '2px' }}>
             {record.unitPrice.toLocaleString('vi-VN')} ₫
           </div>
         </div>
@@ -177,7 +175,7 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
           style={{ borderRadius: '6px' }}
           onClick={() => handleOpenRequisitionModal(record)}
         >
-          Yêu cầu xuất kho
+          Xuất kho
         </Button>
       ),
     },
@@ -185,18 +183,18 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
 
   const requisitionColumns = [
     {
-      title: 'Mã lệnh XK',
+      title: 'Mã lệnh',
       dataIndex: 'requestCode',
       key: 'requestCode',
-      render: (text) => <Text strong style={{ fontFamily: 'monospace', color: '#1677ff' }}>{text}</Text>,
+      render: (text) => <Text strong style={{ fontFamily: 'monospace', color: '#2563eb' }}>{text}</Text>,
     },
     {
-      title: 'Phiếu sửa chữa gắn kết',
+      title: 'Phiếu sửa chữa',
       key: 'job',
       render: (_, record) => (
         <div>
-          <Tag color="blue" style={{ fontWeight: 'bold' }}>{record.repairJobCode}</Tag>
-          <div style={{ fontSize: '12px', color: '#595959', marginTop: '2px' }}>{record.device}</div>
+          <Tag color="blue" style={{ fontWeight: 600 }}>{record.repairJobCode}</Tag>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{record.device}</div>
         </div>
       ),
     },
@@ -205,9 +203,9 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
       key: 'part',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 500 }}>{record.partName}</div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
-            Mã: <Text code>{record.partCode}</Text> | Số lượng: <Text strong style={{ color: '#cf1322' }}>x{record.quantity}</Text>
+          <div style={{ fontWeight: 500, color: '#0f172a' }}>{record.partName}</div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+            Mã: <Text code style={{ fontSize: '11px' }}>{record.partCode}</Text> • Số lượng: <Text strong style={{ color: '#0f172a' }}>{record.quantity}</Text>
           </div>
         </div>
       ),
@@ -217,16 +215,16 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
       key: 'time',
       render: (_, record) => (
         <div>
-          <div style={{ fontSize: '12px' }}>{record.purpose}</div>
-          <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '2px' }}>
-            <ClockCircleOutlined style={{ marginRight: '4px' }} />
+          <div style={{ fontSize: '12px', color: '#334155' }}>{record.purpose}</div>
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <ClockCircleOutlined />
             {record.requestDate}
           </div>
         </div>
       ),
     },
     {
-      title: 'Trạng thái Kho',
+      title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
       render: (status, record) => {
@@ -236,16 +234,15 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
               <Tag color="success" icon={<CheckCircleOutlined />}>
                 Đã xuất kho
               </Tag>
-              <div style={{ fontSize: '11px', color: '#8c8c8c' }}>Thủ kho: {record.warehouseKeeper}</div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Thủ kho: {record.warehouseKeeper}</div>
             </div>
           );
         }
         return (
           <div>
             <Tag color="processing" icon={<ClockCircleOutlined />}>
-              Chờ kho duyệt xuất
+              Chờ duyệt
             </Tag>
-            <div style={{ fontSize: '11px', color: '#fa8c16' }}>Đang chờ thủ kho soạn hàng</div>
           </div>
         );
       },
@@ -259,40 +256,31 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
         items={[
           {
             key: 'catalog',
-            label: (
-              <span style={{ fontWeight: '500' }}>
-                <SearchOutlined /> Tra cứu mã linh kiện tương thích ({COMPATIBLE_PARTS_CATALOG.length})
-              </span>
-            ),
+            label: `Danh mục linh kiện (${COMPATIBLE_PARTS_CATALOG.length})`,
             children: (
-              <Card bordered={false} style={{ borderRadius: '12px' }}>
-                <div style={{ marginBottom: '20px' }}>
+              <Card bordered={false} style={{ borderRadius: '8px' }}>
+                <div style={{ marginBottom: '16px' }}>
                   <Row gutter={[16, 16]} align="middle" justify="space-between">
-                    <Col xs={24} sm={14}>
+                    <Col xs={24} sm={16}>
                       <Space wrap style={{ width: '100%' }}>
                         <Input
-                          placeholder="Tra cứu theo mã, bus RAM, socket, chuẩn cáp..."
-                          prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+                          placeholder="Tìm theo mã, bus RAM, socket, chuẩn cáp..."
+                          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
                           value={searchText}
                           onChange={(e) => setSearchText(e.target.value)}
                           allowClear
-                          style={{ width: 320, borderRadius: '6px' }}
+                          style={{ width: 300, borderRadius: '6px' }}
                         />
                         <Select
                           value={categoryFilter}
                           onChange={setCategoryFilter}
-                          style={{ width: 170 }}
+                          style={{ width: 180 }}
                           options={categories.map((c) => ({
                             value: c,
                             label: c === 'ALL' ? 'Tất cả loại linh kiện' : c,
                           }))}
                         />
                       </Space>
-                    </Col>
-                    <Col xs={24} sm={10} style={{ textAlign: 'right' }}>
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Tự động hiển thị chuẩn chân cắm & tồn kho thực tế tại kho xưởng
-                      </Text>
                     </Col>
                   </Row>
                 </div>
@@ -310,21 +298,12 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
           {
             key: 'requisitions',
             label: (
-              <span style={{ fontWeight: '500' }}>
-                <InboxOutlined /> Lệnh xuất kho đã gửi ({requisitions.length})
+              <span>
+                <InboxOutlined /> Lệnh xuất kho ({requisitions.length})
               </span>
             ),
             children: (
-              <Card bordered={false} style={{ borderRadius: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div>
-                    <Title level={5} style={{ margin: 0 }}>Lịch sử lệnh yêu cầu xuất vật tư</Title>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Tất cả các linh kiện xuất đều bắt buộc gắn chặt với Mã phiếu sửa chữa của ca máy phụ trách.
-                    </Text>
-                  </div>
-                </div>
-
+              <Card bordered={false} style={{ borderRadius: '8px' }}>
                 <Table
                   columns={requisitionColumns}
                   dataSource={requisitions}
@@ -341,14 +320,23 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
       {/* Modal tạo lệnh xuất kho */}
       <Modal
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ShoppingCartOutlined style={{ color: '#1677ff', fontSize: '20px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '6px',
+              background: '#eff6ff',
+              color: '#2563eb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '16px'
+            }}>
+              <ShoppingCartOutlined />
+            </div>
             <div>
-              <div style={{ fontWeight: '600', fontSize: '16px' }}>
-                Tạo lệnh yêu cầu xuất linh kiện trực tuyến
-              </div>
-              <div style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 'normal' }}>
-                Gắn liền Mã phiếu sửa chữa gửi sang bộ phận Quản lý kho
+              <div style={{ fontWeight: 600, fontSize: '15px', color: '#0f172a' }}>
+                Yêu cầu xuất linh kiện
               </div>
             </div>
           </div>
@@ -356,34 +344,34 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         onOk={handleCreateRequisition}
-        okText="Gửi lệnh sang bộ phận Kho"
+        okText="Gửi yêu cầu"
         cancelText="Hủy"
-        width={620}
+        width={560}
       >
         {selectedPart && (
           <Form form={form} layout="vertical" style={{ marginTop: '16px' }}>
-            <Card size="small" style={{ background: '#f0f5ff', borderColor: '#adc6ff', marginBottom: '16px' }}>
-              <div style={{ fontWeight: 600, color: '#0958d9', fontSize: '14px' }}>
+            <Card size="small" style={{ background: '#f8fafc', borderColor: '#e2e8f0', marginBottom: '16px', borderRadius: '8px' }}>
+              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>
                 {selectedPart.name}
               </div>
-              <div style={{ fontSize: '12px', color: '#595959', marginTop: '4px' }}>
-                Mã: <Text code>{selectedPart.code}</Text> | Chuẩn: {selectedPart.busSpec} ({selectedPart.socketPin})
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
+                Mã: <Text code>{selectedPart.code}</Text> • Chuẩn: {selectedPart.busSpec} ({selectedPart.socketPin})
               </div>
-              <div style={{ fontSize: '12px', color: '#389e0d', marginTop: '2px', fontWeight: 500 }}>
+              <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '2px', fontWeight: 500 }}>
                 Tồn kho: {selectedPart.stock} chiếc tại {selectedPart.location}
               </div>
             </Card>
 
             <Form.Item
               name="jobKey"
-              label={<span style={{ fontWeight: 600 }}>Bắt buộc gắn với Mã phiếu sửa chữa của ca máy:</span>}
-              rules={[{ required: true, message: 'Vui lòng chọn ca máy cần lĩnh vật tư!' }]}
+              label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Phiếu sửa chữa</span>}
+              rules={[{ required: true, message: 'Vui lòng chọn ca máy' }]}
             >
               <Select
-                placeholder="Chọn ca máy đang phụ trách"
+                placeholder="Chọn ca máy cần lĩnh vật tư"
                 options={jobs.map((job) => ({
                   value: job.key,
-                  label: `[${job.code}] - ${job.device} (${job.customer})`,
+                  label: `[${job.code}] ${job.device} — ${job.customer}`,
                 }))}
               />
             </Form.Item>
@@ -392,7 +380,7 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
               <Col span={12}>
                 <Form.Item
                   name="quantity"
-                  label={<span style={{ fontWeight: 600 }}>Số lượng yêu cầu:</span>}
+                  label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Số lượng</span>}
                   rules={[{ required: true, message: 'Nhập số lượng' }]}
                 >
                   <InputNumber min={1} max={selectedPart.stock || 5} style={{ width: '100%' }} />
@@ -401,7 +389,7 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
               <Col span={12}>
                 <Form.Item
                   name="partCode"
-                  label={<span style={{ fontWeight: 600 }}>Mã linh kiện SKU:</span>}
+                  label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Mã SKU</span>}
                 >
                   <Input disabled />
                 </Form.Item>
@@ -410,15 +398,11 @@ const PartsRequisitionTab = ({ jobs, requisitions, onAddRequisition }) => {
 
             <Form.Item
               name="purpose"
-              label={<span style={{ fontWeight: 600 }}>Lý do / Mục đích xuất linh kiện:</span>}
+              label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Mục đích sử dụng</span>}
               rules={[{ required: true, message: 'Nhập lý do sử dụng' }]}
             >
-              <Input.TextArea rows={2} placeholder="VD: Thay thế tụ bị chập rò mass trên bo mạch nguồn 19V..." />
+              <Input.TextArea rows={2} placeholder="Mô tả lý do thay thế linh kiện..." />
             </Form.Item>
-
-            <div style={{ fontSize: '12px', color: '#8c8c8c', background: '#fafafa', padding: '8px 12px', borderRadius: '6px' }}>
-              🔒 Quy chế xưởng: Sau khi gửi, thủ kho sẽ kiểm tra mã phiếu và xuất vật tư ngay tại cửa giao nhận B2.
-            </div>
           </Form>
         )}
       </Modal>

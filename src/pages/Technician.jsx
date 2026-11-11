@@ -4,17 +4,14 @@ import {
   Card, 
   Row, 
   Col, 
-  Typography, 
   Tag, 
-  Badge, 
-  message 
+  Badge 
 } from 'antd';
 import { 
   ToolOutlined, 
   ShoppingCartOutlined, 
   DollarOutlined, 
-  BarChartOutlined, 
-  MobileOutlined
+  BarChartOutlined 
 } from '@ant-design/icons';
 
 import AssignedJobsTab from '../components/Technician/AssignedJobsTab';
@@ -30,8 +27,6 @@ import {
   initialProposals, 
   TECHNICIAN_INFO 
 } from '../components/Technician/mockData';
-
-const { Title, Text } = Typography;
 
 const Technician = () => {
   const [activeTab, setActiveTab] = useState('assigned_jobs');
@@ -51,7 +46,6 @@ const Technician = () => {
   const completedTodayCount = jobs.filter(j => ['Hoàn thành', 'Đã trả máy'].includes(j.status)).length;
   const urgentCount = jobs.filter(j => j.priority === 'Khẩn cấp').length;
 
-  // Handlers for job operations
   const handleUpdateJobStatus = (jobKey, newStatus) => {
     setJobs(prev =>
       prev.map(j => {
@@ -82,7 +76,6 @@ const Technician = () => {
   const handleSubmitProposal = (jobKey, proposalData) => {
     setProposals(prev => [proposalData, ...prev]);
 
-    // Update job's proposal list and status
     setJobs(prev =>
       prev.map(j => {
         if (j.key === jobKey) {
@@ -114,7 +107,6 @@ const Technician = () => {
   const handleAddRequisition = (newRequisition) => {
     setRequisitions(prev => [newRequisition, ...prev]);
 
-    // If attached to a job, reflect in job's spare parts & set status if needed
     setJobs(prev =>
       prev.map(j => {
         if (j.code === newRequisition.repairJobCode) {
@@ -139,19 +131,16 @@ const Technician = () => {
     );
   };
 
-  // Open diagnosis modal for a job
   const handleOpenDiagnosis = (job) => {
     setActiveJobForAction(job);
     setDiagnosisModalVisible(true);
   };
 
-  // Open proposal modal for a job
   const handleOpenProposal = (job) => {
     setActiveJobForAction(job);
     setProposalModalVisible(true);
   };
 
-  // Open requisition tab with job targeted
   const handleOpenRequisitionFromJob = (job) => {
     setActiveJobForAction(job);
     setActiveTab('parts_requisition');
@@ -161,8 +150,6 @@ const Technician = () => {
     if (jobs.length > 0) {
       setActiveJobForAction(jobs[0]);
       setProposalModalVisible(true);
-    } else {
-      message.warning('Không có ca máy nào để tạo đề xuất.');
     }
   };
 
@@ -170,9 +157,9 @@ const Technician = () => {
     {
       key: 'assigned_jobs',
       label: (
-        <span style={{ fontSize: '14px', fontWeight: 600 }}>
+        <span style={{ fontSize: '13px', fontWeight: 500 }}>
           <ToolOutlined /> Ca máy phân công{' '}
-          <Badge count={inProgressCount} style={{ backgroundColor: '#1677ff', marginLeft: '4px' }} />
+          <Badge count={inProgressCount} style={{ backgroundColor: '#2563eb', marginLeft: '6px' }} />
         </span>
       ),
       children: (
@@ -188,9 +175,9 @@ const Technician = () => {
     {
       key: 'parts_requisition',
       label: (
-        <span style={{ fontSize: '14px', fontWeight: 600 }}>
+        <span style={{ fontSize: '13px', fontWeight: 500 }}>
           <ShoppingCartOutlined /> Tra cứu & Lĩnh vật tư{' '}
-          <Badge count={requisitions.length} style={{ backgroundColor: '#52c41a', marginLeft: '4px' }} />
+          <Badge count={requisitions.length} style={{ backgroundColor: '#059669', marginLeft: '6px' }} />
         </span>
       ),
       children: (
@@ -204,11 +191,11 @@ const Technician = () => {
     {
       key: 'proposals',
       label: (
-        <span style={{ fontSize: '14px', fontWeight: 600 }}>
-          <DollarOutlined /> Đề xuất báo giá phát sinh{' '}
+        <span style={{ fontSize: '13px', fontWeight: 500 }}>
+          <DollarOutlined /> Đề xuất phát sinh{' '}
           <Badge 
             count={proposals.filter(p => p.status === 'Chờ duyệt khách').length} 
-            style={{ backgroundColor: '#faad14', marginLeft: '4px' }} 
+            style={{ backgroundColor: '#d97706', marginLeft: '6px' }} 
           />
         </span>
       ),
@@ -222,8 +209,8 @@ const Technician = () => {
     {
       key: 'productivity',
       label: (
-        <span style={{ fontSize: '14px', fontWeight: 600 }}>
-          <BarChartOutlined /> Năng suất & Thu nhập KTV
+        <span style={{ fontSize: '13px', fontWeight: 500 }}>
+          <BarChartOutlined /> Năng suất & Thu nhập
         </span>
       ),
       children: <ProductivityTab />,
@@ -232,46 +219,38 @@ const Technician = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Top Banner: Quick Summary & Touch Support Notification */}
-      <Card 
-        bordered={false} 
-        style={{ 
-          borderRadius: '12px', 
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-          background: '#ffffff'
-        }}
-      >
+      {/* Top Workspace Header */}
+      <Card bodyStyle={{ padding: '14px 18px' }}>
         <Row gutter={[16, 16]} align="middle" justify="space-between">
-          <Col xs={24} lg={12}>
+          <Col xs={24} lg={10}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ 
-                width: '44px', 
-                height: '44px', 
-                borderRadius: '10px', 
-                background: '#e6f4ff', 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center',
-                color: '#1677ff',
-                fontSize: '22px'
-              }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '6px',
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#2563eb',
+                  fontSize: '18px'
+                }}
+              >
                 <ToolOutlined />
               </div>
               <div>
-                <Title level={4} style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>
-                  Bàn làm việc Kỹ thuật viên (KTV Workbench)
-                </Title>
-                <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span>Thợ phụ trách: <Text strong style={{ color: '#1f2937' }}>{TECHNICIAN_INFO.name}</Text></span>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
+                  {TECHNICIAN_INFO.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{TECHNICIAN_INFO.role}</span>
                   <span>•</span>
-                  <span>Bàn B3 (Khu Bo mạch)</span>
-                  <span>•</span>
-                  <Tag color="cyan" icon={<MobileOutlined />} style={{ borderRadius: '10px', margin: 0 }}>
-                    Tối ưu Mobile / Tablet / PC
-                  </Tag>
+                  <span>{TECHNICIAN_INFO.workstation}</span>
                   {urgentCount > 0 && (
-                    <Tag color="red" style={{ borderRadius: '10px', margin: 0, fontWeight: 'bold' }}>
-                      ⚡ {urgentCount} ca khẩn cấp
+                    <Tag color="error" style={{ margin: 0, fontWeight: 600 }}>
+                      {urgentCount} khẩn cấp
                     </Tag>
                   )}
                 </div>
@@ -279,30 +258,30 @@ const Technician = () => {
             </div>
           </Col>
 
-          <Col xs={24} lg={12}>
+          <Col xs={24} lg={14}>
             <Row gutter={12}>
               <Col span={6}>
-                <div style={{ textAlign: 'center', borderRight: '1px solid #f0f0f0' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Tổng ca nhận</Text>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1f2937' }}>{totalAssigned}</div>
+                <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, textTransform: 'uppercase' }}>Tổng ca</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{totalAssigned}</div>
                 </div>
               </Col>
               <Col span={6}>
-                <div style={{ textAlign: 'center', borderRight: '1px solid #f0f0f0' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Đang xử lý</Text>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1677ff' }}>{inProgressCount}</div>
+                <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, textTransform: 'uppercase' }}>Đang xử lý</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#2563eb', marginTop: '2px' }}>{inProgressCount}</div>
                 </div>
               </Col>
               <Col span={6}>
-                <div style={{ textAlign: 'center', borderRight: '1px solid #f0f0f0' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Chờ linh kiện/Duyệt</Text>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fa8c16' }}>{waitingCount}</div>
+                <div style={{ textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, textTransform: 'uppercase' }}>Chờ linh kiện/Duyệt</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#d97706', marginTop: '2px' }}>{waitingCount}</div>
                 </div>
               </Col>
               <Col span={6}>
                 <div style={{ textAlign: 'center' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Đã hoàn tất</Text>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>{completedTodayCount}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, textTransform: 'uppercase' }}>Hoàn thành</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#059669', marginTop: '2px' }}>{completedTodayCount}</div>
                 </div>
               </Col>
             </Row>
@@ -310,18 +289,11 @@ const Technician = () => {
         </Row>
       </Card>
 
-      {/* Main Tabbed Interface */}
+      {/* Main Tabs */}
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
-        type="card"
         items={tabItems}
-        style={{
-          background: '#ffffff',
-          borderRadius: '12px',
-          padding: '16px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-        }}
       />
 
       {/* Diagnosis Modal */}

@@ -4,23 +4,18 @@ import {
   Tag, 
   Input, 
   Button, 
-  Space, 
-  Divider, 
   Row, 
   Col, 
   Card, 
-  message,
-  Alert
+  message 
 } from 'antd';
 import { 
   CheckCircleOutlined, 
-  ToolOutlined, 
-  InfoCircleOutlined, 
-  ThunderboltOutlined 
+  ToolOutlined 
 } from '@ant-design/icons';
 import { DIAGNOSIS_PRESETS } from './mockData';
 
-const { Text, Paragraph } = Input.TextArea ? { Text: (props) => <span {...props} />, Paragraph: (props) => <p {...props} /> } : {};
+const { Text } = Input.TextArea ? { Text: (props) => <span {...props} /> } : {};
 
 const DiagnosisContent = ({ job, onCancel, onSave }) => {
   const [selectedTags, setSelectedTags] = useState(job?.actualDiagnosis?.tags || []);
@@ -42,7 +37,7 @@ const DiagnosisContent = ({ job, onCancel, onSave }) => {
 
   const handleSave = () => {
     if (selectedTags.length === 0 && !notes.trim()) {
-      message.warning('Vui lòng chọn ít nhất 1 lỗi chẩn đoán hoặc nhập ghi chú kỹ thuật!');
+      message.warning('Vui lòng chọn mã lỗi hoặc nhập ghi chú kỹ thuật.');
       return;
     }
 
@@ -62,27 +57,21 @@ const DiagnosisContent = ({ job, onCancel, onSave }) => {
   };
 
   return (
-    <div style={{ maxHeight: 'calc(85vh - 120px)', overflowY: 'auto', paddingRight: '6px' }}>
-      {/* So sánh 2 cột: Khách khai báo vs KTV chẩn đoán */}
-      <Row gutter={[16, 16]} style={{ marginTop: '12px' }}>
+    <div style={{ maxHeight: 'calc(85vh - 120px)', overflowY: 'auto', paddingRight: '4px' }}>
+      {/* 2-column comparison */}
+      <Row gutter={[12, 12]} style={{ marginTop: '8px' }}>
         <Col xs={24} md={12}>
           <Card 
             size="small" 
-            title={
-              <Space>
-                <InfoCircleOutlined style={{ color: '#fa8c16' }} />
-                <span style={{ color: '#d46b08', fontWeight: 600 }}>1. Khai báo ban đầu của khách hàng</span>
-              </Space>
-            }
-            style={{ background: '#fffbe6', borderColor: '#ffe58f', height: '100%' }}
+            title={<span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Khai báo ban đầu từ khách</span>}
+            style={{ background: '#f8fafc', height: '100%' }}
           >
-            <Paragraph style={{ margin: 0, fontSize: '13px', fontStyle: 'italic', color: '#595959' }}>
+            <div style={{ fontSize: '13px', color: '#1e293b' }}>
               "{job.customerIssue}"
-            </Paragraph>
-            <div style={{ marginTop: '10px', fontSize: '12px', color: '#8c8c8c' }}>
-              <div>Số Serial/IMEI: <Text style={{ fontFamily: 'monospace', background: '#f5f5f5', padding: '1px 4px' }}>{job.deviceSerial || 'Chưa cung cấp'}</Text></div>
-              <div>Thời gian tiếp nhận: {job.receiveDate}</div>
-              <div>Hẹn trả: <Tag color="red">{job.appointmentDate}</Tag></div>
+            </div>
+            <div style={{ marginTop: '10px', fontSize: '12px', color: '#64748b' }}>
+              <div>Serial: <Text style={{ fontFamily: 'monospace' }}>{job.deviceSerial || '—'}</Text></div>
+              <div>Hẹn trả: <span style={{ fontWeight: 600, color: '#0f172a' }}>{job.appointmentDate}</span></div>
             </div>
           </Card>
         </Col>
@@ -90,45 +79,37 @@ const DiagnosisContent = ({ job, onCancel, onSave }) => {
         <Col xs={24} md={12}>
           <Card 
             size="small" 
-            title={
-              <Space>
-                <ThunderboltOutlined style={{ color: '#1677ff' }} />
-                <span style={{ color: '#0958d9', fontWeight: 600 }}>2. Kết luận chẩn đoán thực tế của thợ</span>
-              </Space>
-            }
-            style={{ background: '#f0f5ff', borderColor: '#adc6ff', height: '100%' }}
+            title={<span style={{ fontSize: '13px', fontWeight: 600, color: '#2563eb' }}>Mã lỗi thực tế xác nhận</span>}
+            style={{ background: '#eff6ff', height: '100%', borderColor: '#dbeafe' }}
           >
             {selectedTags.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                 {selectedTags.map((tag) => (
                   <Tag 
                     key={tag} 
                     color="blue" 
                     closable 
                     onClose={() => handleToggleTag(tag)}
-                    style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px' }}
+                    style={{ fontSize: '12px' }}
                   >
                     {tag}
                   </Tag>
                 ))}
               </div>
             ) : (
-              <span style={{ fontSize: '12px', color: '#8c8c8c', fontStyle: 'italic' }}>
-                Chưa chọn mã lỗi thực tế bên dưới. Tích chọn nhanh các ô bên dưới để ghi nhận.
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                Chưa chọn mã lỗi (tích chọn danh mục bên dưới)
               </span>
             )}
           </Card>
         </Col>
       </Row>
 
-      <Divider style={{ margin: '16px 0 12px 0' }}>
-        <span style={{ fontWeight: 600, fontSize: '13px', color: '#595959' }}>
-          MẪU GHI CHÚ TÍCH CHỌN NHANH THEO HẠNG MỤC PHẦN CỨNG
+      {/* Preset groups */}
+      <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <span style={{ fontWeight: 600, fontSize: '12px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Danh mục mã lỗi phần cứng
         </span>
-      </Divider>
-
-      {/* Các nhóm chẩn đoán tích chọn nhanh */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {DIAGNOSIS_PRESETS.map((group) => (
           <Card 
             key={group.category} 
@@ -139,16 +120,16 @@ const DiagnosisContent = ({ job, onCancel, onSave }) => {
                 <Button 
                   type="link" 
                   size="small" 
-                  style={{ padding: 0, fontSize: '11px' }}
+                  style={{ padding: 0, fontSize: '12px' }}
                   onClick={() => handleApplyPresetGroup(group.items)}
                 >
                   Chọn tất cả
                 </Button>
               </div>
             }
-            style={{ background: '#fafafa', borderRadius: '8px' }}
+            bodyStyle={{ padding: '10px 14px' }}
           >
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {group.items.map((item) => {
                 const isChecked = selectedTags.includes(item);
                 return (
@@ -157,17 +138,16 @@ const DiagnosisContent = ({ job, onCancel, onSave }) => {
                     checked={isChecked}
                     onChange={() => handleToggleTag(item)}
                     style={{
-                      padding: '6px 12px',
+                      padding: '3px 10px',
                       fontSize: '12px',
-                      borderRadius: '16px',
-                      border: isChecked ? '1px solid #1677ff' : '1px dashed #d9d9d9',
-                      background: isChecked ? '#e6f4ff' : '#ffffff',
-                      color: isChecked ? '#0958d9' : '#595959',
+                      borderRadius: '4px',
+                      border: isChecked ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                      background: isChecked ? '#eff6ff' : '#ffffff',
+                      color: isChecked ? '#1d4ed8' : '#334155',
                       cursor: 'pointer',
-                      transition: 'all 0.2s',
                     }}
                   >
-                    {isChecked ? '✓ ' : '+ '} {item}
+                    {item}
                   </Tag.CheckableTag>
                 );
               })}
@@ -176,53 +156,38 @@ const DiagnosisContent = ({ job, onCancel, onSave }) => {
         ))}
       </div>
 
-      {/* Đo đạc số liệu kỹ thuật & Ghi chú bổ sung */}
-      <Divider style={{ margin: '16px 0 12px 0' }}>
-        <span style={{ fontWeight: 600, fontSize: '13px', color: '#595959' }}>
-          THÔNG SỐ ĐO ĐẠC & GHI CHÚ CHUYÊN SÂU
-        </span>
-      </Divider>
-
-      <Row gutter={[16, 16]}>
+      {/* Measurements and notes */}
+      <Row gutter={[12, 12]} style={{ marginTop: '16px' }}>
         <Col xs={24} md={12}>
-          <div style={{ marginBottom: '6px', fontWeight: '500', fontSize: '13px' }}>
-            Thông số điện áp & đo đạc đồng hồ (Oscilloscope / VOM):
+          <div style={{ marginBottom: '4px', fontWeight: 500, fontSize: '12px', color: '#475569' }}>
+            Thông số đo đạc điện áp / VOM:
           </div>
           <Input 
-            placeholder="VD: Vin=19.5V, Ăn dòng standby 0.85A, Trở kháng cuộn cảm coil PL101 = 0.8Ω" 
+            placeholder="VD: Vin=19.5V, Standby 0.85A, Coil PL101 = 0.8Ω" 
             value={measurements} 
             onChange={(e) => setMeasurements(e.target.value)} 
             allowClear
           />
         </Col>
         <Col xs={24} md={12}>
-          <div style={{ marginBottom: '6px', fontWeight: '500', fontSize: '13px' }}>
-            Biện pháp can thiệp & Chi tiết xử lý:
+          <div style={{ marginBottom: '4px', fontWeight: 500, fontSize: '12px', color: '#475569' }}>
+            Chi tiết biện pháp xử lý:
           </div>
           <Input.TextArea 
-            rows={3} 
-            placeholder="Mô tả chi tiết giải pháp xử lý phần cứng: gỡ tụ, đóng lại chip BGA, vệ sinh tẩm sấy..." 
+            rows={2} 
+            placeholder="Ghi chú chi tiết can thiệp..." 
             value={notes} 
             onChange={(e) => setNotes(e.target.value)} 
           />
         </Col>
       </Row>
 
-      <div style={{ marginTop: '16px' }}>
-        <Alert 
-          type="info" 
-          showIcon 
-          message="Minh bạch hóa can thiệp phần cứng" 
-          description="Kết quả chẩn đoán này sẽ được lưu vào lịch sử bệnh án của máy, đồng thời gửi cho bộ phận lễ tân để tư vấn minh bạch cho khách hàng trước khi can thiệp linh kiện."
-        />
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '20px' }}>
         <Button onClick={onCancel}>
           Đóng
         </Button>
         <Button type="primary" icon={<CheckCircleOutlined />} onClick={handleSave}>
-          Lưu chẩn đoán & Đồng bộ hồ sơ máy
+          Lưu chẩn đoán
         </Button>
       </div>
     </div>
@@ -236,21 +201,14 @@ const DiagnosisModal = ({ visible, job, onCancel, onSave }) => {
     <Modal
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ToolOutlined style={{ color: '#1677ff', fontSize: '20px' }} />
-          <div>
-            <div style={{ fontWeight: '600', fontSize: '16px' }}>
-              Chẩn đoán lỗi thực tế phần cứng — Phiếu {job.code}
-            </div>
-            <div style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 'normal' }}>
-              Thiết bị: {job.device} | Khách hàng: {job.customer} ({job.phone})
-            </div>
-          </div>
+          <ToolOutlined style={{ color: '#2563eb', fontSize: '18px' }} />
+          <span>Chẩn đoán phần cứng — {job.code} ({job.device})</span>
         </div>
       }
       open={visible}
       onCancel={onCancel}
-      width={880}
-      style={{ top: 20 }}
+      width={800}
+      style={{ top: 24 }}
       footer={null}
       destroyOnClose
     >
@@ -259,7 +217,7 @@ const DiagnosisModal = ({ visible, job, onCancel, onSave }) => {
         onCancel={onCancel} 
         onSave={(key, diagnosis) => {
           onSave(key, diagnosis);
-          message.success('Đã lưu kết quả chẩn đoán kỹ thuật thực tế thành công!');
+          message.success('Đã lưu kết quả chẩn đoán.');
         }} 
       />
     </Modal>

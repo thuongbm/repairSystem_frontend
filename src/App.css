@@ -1,37 +1,155 @@
-/* Responsive and workbench styles */
+/* SaaS Dashboard Clean App Styles */
 
+.layout-sidebar {
+  background: #0f172a !important;
+  border-right: 1px solid #1e293b;
+  user-select: none;
+}
+
+.layout-sidebar-logo {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  border-bottom: 1px solid #1e293b;
+  color: #ffffff;
+}
+
+.layout-sidebar-menu.ant-menu {
+  background: transparent !important;
+  padding: 8px !important;
+  border-right: none !important;
+}
+
+.layout-sidebar-menu .ant-menu-item {
+  border-radius: 6px !important;
+  margin: 3px 0 !important;
+  width: 100% !important;
+  height: 38px !important;
+  line-height: 38px !important;
+  color: #94a3b8 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-left: 12px !important;
+}
+
+.layout-sidebar-menu .ant-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f8fafc !important;
+}
+
+.layout-sidebar-menu .ant-menu-item-selected {
+  background: #1e293b !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.layout-sidebar-menu .ant-menu-item-selected::after {
+  display: none !important;
+}
+
+.layout-sidebar-menu .ant-menu-item .ant-menu-item-icon {
+  font-size: 15px !important;
+  min-width: 20px !important;
+}
+
+.layout-header {
+  height: 56px !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding: 0 24px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.layout-content-wrapper {
+  padding: 20px 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Metric / Stat Card */
+.stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-card-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.stat-card-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.stat-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Clean Search Input */
+.header-search-input {
+  width: 280px;
+  border-radius: 6px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  font-size: 13px !important;
+  padding: 5px 12px !important;
+}
+
+.header-search-input:focus,
+.header-search-input:hover {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Mobile responsive */
 @media (max-width: 768px) {
+  .layout-content-wrapper {
+    padding: 14px 12px;
+  }
+
+  .header-search-input {
+    width: 180px;
+  }
+
   .mobile-hide {
     display: none !important;
   }
-
-  .ant-layout-content {
-    margin: 12px 8px !important;
-  }
-
-  .ant-card-body {
-    padding: 12px !important;
-  }
-
-  .ant-tabs-nav {
-    margin-bottom: 12px !important;
-  }
 }
 
-/* Touch-friendly touch targets */
-.touch-btn {
-  min-height: 38px;
-  touch-action: manipulation;
-}
-
-/* Custom scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;

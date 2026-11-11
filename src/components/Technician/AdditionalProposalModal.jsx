@@ -7,15 +7,13 @@ import {
   Select, 
   Button, 
   Card, 
-  Alert, 
   message, 
   Row, 
   Col
 } from 'antd';
 import { 
   DollarOutlined, 
-  SendOutlined,
-  ExclamationCircleOutlined 
+  SendOutlined
 } from '@ant-design/icons';
 
 const { TextArea } = Input;
@@ -54,7 +52,7 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
       };
 
       onSubmitProposal(job.key, newProposal);
-      message.success(`Đã gửi đề xuất báo giá phát sinh cho ca máy ${job.code} sang Lễ tân!`);
+      message.success(`Đã gửi đề xuất báo giá cho ca máy ${job.code}`);
       form.resetFields();
       setPartCost(0);
       setLaborCost(0);
@@ -66,21 +64,33 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
   return (
     <Modal
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <DollarOutlined style={{ color: '#faad14', fontSize: '20px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            background: '#eff6ff',
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px'
+          }}>
+            <DollarOutlined />
+          </div>
           <div>
-            <div style={{ fontWeight: '600', fontSize: '16px' }}>
-              Đề xuất báo giá phát sinh — Ca máy {job.code}
+            <div style={{ fontWeight: 600, fontSize: '15px', color: '#0f172a' }}>
+              Đề xuất báo giá phát sinh — {job.code}
             </div>
-            <div style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 'normal' }}>
-              Thiết bị: {job.device} | Khách: {job.customer} ({job.phone})
+            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 'normal' }}>
+              {job.device} • {job.customer} ({job.phone})
             </div>
           </div>
         </div>
       }
       open={visible}
       onCancel={onCancel}
-      width={720}
+      width={680}
       footer={[
         <Button key="back" onClick={onCancel}>
           Hủy bỏ
@@ -89,31 +99,21 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
           key="submit" 
           type="primary" 
           icon={<SendOutlined />} 
-          style={{ background: '#faad14', borderColor: '#faad14' }}
           onClick={handleSubmit}
         >
-          Gửi đề xuất sang Lễ tân / Quản lý duyệt khách
+          Gửi đề xuất phê duyệt
         </Button>,
       ]}
     >
-      <Alert
-        type="warning"
-        showIcon
-        icon={<ExclamationCircleOutlined />}
-        message="Lưu ý quy trình can thiệp phần cứng phát sinh"
-        description="Khi phát hiện lỗi ẩn hoặc linh kiện cần thay thế ngoài cam kết ban đầu, KTV KHÔNG tự ý thay thế tính tiền mà phải gửi đề xuất này để Lễ tân liên hệ giải thích và nhận sự đồng thuận từ khách hàng."
-        style={{ marginBottom: '16px' }}
-      />
-
-      <Card size="small" style={{ background: '#fafafa', marginBottom: '16px' }}>
+      <Card size="small" style={{ background: '#f8fafc', borderColor: '#e2e8f0', marginBottom: '16px', borderRadius: '8px' }}>
         <div style={{ fontSize: '13px' }}>
-          <span style={{ fontWeight: 600 }}>Lỗi ban đầu khách khai báo: </span>
-          <span style={{ color: '#595959' }}>{job.customerIssue}</span>
+          <span style={{ fontWeight: 600, color: '#334155' }}>Lỗi ban đầu: </span>
+          <span style={{ color: '#64748b' }}>{job.customerIssue}</span>
         </div>
         {job.actualDiagnosis && (
           <div style={{ fontSize: '13px', marginTop: '6px' }}>
-            <span style={{ fontWeight: 600 }}>Lỗi thực tế đã chẩn đoán: </span>
-            <span style={{ color: '#cf1322' }}>{job.actualDiagnosis.notes || 'Chưa ghi chú'}</span>
+            <span style={{ fontWeight: 600, color: '#334155' }}>Chẩn đoán thực tế: </span>
+            <span style={{ color: '#0f172a' }}>{job.actualDiagnosis.notes || 'Chưa ghi chú'}</span>
           </div>
         )}
       </Card>
@@ -129,20 +129,20 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
       >
         <Form.Item
           name="title"
-          label={<span style={{ fontWeight: 600 }}>Tên hạng mục sửa chữa / Linh kiện phát sinh</span>}
-          rules={[{ required: true, message: 'Vui lòng nhập tên hạng mục phát sinh!' }]}
+          label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Hạng mục / Linh kiện phát sinh</span>}
+          rules={[{ required: true, message: 'Vui lòng nhập tên hạng mục' }]}
         >
-          <Input placeholder="VD: Thay IC nguồn sạc ISL95522 + Vệ sinh bôi keo tản nhiệt gốm" />
+          <Input placeholder="VD: Thay IC nguồn sạc ISL95522 + Vệ sinh tản nhiệt" />
         </Form.Item>
 
         <Form.Item
           name="reason"
-          label={<span style={{ fontWeight: 600 }}>Lý do kỹ thuật & Hiện trạng phần cứng</span>}
-          rules={[{ required: true, message: 'Vui lòng giải trình rõ lý do phát sinh để lễ tân giải thích cho khách!' }]}
+          label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Lý do kỹ thuật & Hiện trạng</span>}
+          rules={[{ required: true, message: 'Vui lòng nhập lý do phát sinh' }]}
         >
           <TextArea 
             rows={3} 
-            placeholder="Giải thích rõ vì sao phát sinh lỗi này: VD Tháo máy phát hiện tụ chập cháy lan sang IC nguồn phụ, chân tiếp xúc pin bị mủn do vào nước trước đó..." 
+            placeholder="Giải trình nguyên nhân kỹ thuật phát sinh linh kiện..." 
           />
         </Form.Item>
 
@@ -150,14 +150,14 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
           <Col span={12}>
             <Form.Item
               name="priority"
-              label={<span style={{ fontWeight: 600 }}>Mức độ cần thiết</span>}
+              label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Mức độ ưu tiên</span>}
               rules={[{ required: true }]}
             >
               <Select
                 options={[
-                  { value: 'Bắt buộc', label: '🔴 Bắt buộc (Không làm máy không thể hoạt động)' },
-                  { value: 'Khuyến nghị', label: '🟡 Khuyến nghị (Nên làm để máy chạy bền, tránh hỏng lại)' },
-                  { value: 'Tùy chọn', label: '🟢 Tùy chọn (Nâng cấp thêm theo nguyện vọng)' },
+                  { value: 'Bắt buộc', label: 'Bắt buộc (Cần thiết vận hành)' },
+                  { value: 'Khuyến nghị', label: 'Khuyến nghị (Tránh tái hỏng)' },
+                  { value: 'Tùy chọn', label: 'Tùy chọn (Nâng cấp thêm)' },
                 ]}
               />
             </Form.Item>
@@ -165,7 +165,7 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
           <Col span={12}>
             <Form.Item
               name="repairJobCodeDisplay"
-              label={<span style={{ fontWeight: 600 }}>Mã phiếu sửa chữa gắn kết</span>}
+              label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Mã phiếu sửa chữa</span>}
             >
               <Input value={job.code} disabled />
             </Form.Item>
@@ -176,7 +176,7 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
           <Col span={12}>
             <Form.Item
               name="partCost"
-              label={<span style={{ fontWeight: 600 }}>Tiền linh kiện phát sinh (₫)</span>}
+              label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Chi phí linh kiện (₫)</span>}
             >
               <InputNumber
                 style={{ width: '100%' }}
@@ -191,7 +191,7 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
           <Col span={12}>
             <Form.Item
               name="laborCost"
-              label={<span style={{ fontWeight: 600 }}>Tiền công thợ thực hiện (₫)</span>}
+              label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Công thợ (₫)</span>}
             >
               <InputNumber
                 style={{ width: '100%' }}
@@ -205,24 +205,23 @@ const AdditionalProposalModal = ({ visible, job, onCancel, onSubmitProposal }) =
           </Col>
         </Row>
 
-        {/* Tổng tiền dự kiến */}
         <Card 
           size="small" 
           style={{ 
-            background: '#fffbe6', 
-            border: '1px solid #ffe58f', 
+            background: '#f8fafc', 
+            border: '1px solid #e2e8f0', 
             borderRadius: '8px', 
             marginTop: '8px' 
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 600, color: '#d46b08' }}>Tổng chi phí phát sinh đề xuất:</span>
-            <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#cf1322' }}>
+            <span style={{ fontWeight: 500, color: '#475569', fontSize: '13px' }}>Tổng chi phí đề xuất:</span>
+            <span style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
               {totalCost.toLocaleString('vi-VN')} ₫
             </span>
           </div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
-            (Gồm: Linh kiện {((partCost || 0)).toLocaleString('vi-VN')} ₫ + Tiền công {((laborCost || 0)).toLocaleString('vi-VN')} ₫)
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+            Linh kiện: {((partCost || 0)).toLocaleString('vi-VN')} ₫ + Công thợ: {((laborCost || 0)).toLocaleString('vi-VN')} ₫
           </div>
         </Card>
       </Form>

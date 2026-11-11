@@ -1,237 +1,149 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, Card, Typography, Layout, Alert, Divider, Space, Tag, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Card, Typography, Row, Col, Layout } from 'antd';
+import { 
+  UserOutlined, 
+  SettingOutlined, 
+  ShopOutlined, 
+  ToolOutlined, 
+  CustomerServiceOutlined 
+} from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
 
 const { Title, Text } = Typography;
 
-// Ánh xạ vai trò từ Backend (chữ HOA) sang vai trò điều hướng Frontend (chữ thường)
-const mapBackendRole = (vaiTro) => {
-  switch ((vaiTro || '').toUpperCase()) {
-    case 'ADMIN':
-      return { role: 'admin', roleName: 'Quản trị viên' };
-    case 'KY_THUAT_VIEN':
-      return { role: 'technician', roleName: 'Kỹ thuật viên' };
-    case 'THU_KHO':
-      return { role: 'warehouse', roleName: 'Thủ kho' };
-    case 'LE_TAN':
-      return { role: 'receptionist', roleName: 'Lễ tân' };
-    case 'KHACH_HANG':
-    default:
-      return { role: 'customer', roleName: 'Khách hàng' };
+const roles = [
+  {
+    id: 'admin',
+    name: 'Quản trị viên (Admin)',
+    description: 'Toàn quyền cấu hình hệ thống & báo cáo',
+    icon: <SettingOutlined style={{ fontSize: '20px', color: '#0f172a' }} />,
+    user: { name: 'Mỹ Linh', role: 'admin', roleName: 'Quản trị viên' }
+  },
+  {
+    id: 'receptionist',
+    name: 'Lễ tân / Thu ngân',
+    description: 'Tiếp nhận thiết bị, thu ngân, giao ca',
+    icon: <CustomerServiceOutlined style={{ fontSize: '20px', color: '#2563eb' }} />,
+    user: { name: 'Thanh Thảo', role: 'receptionist', roleName: 'Lễ tân / Thu ngân' }
+  },
+  {
+    id: 'technician',
+    name: 'Kỹ thuật viên',
+    description: 'Chẩn đoán phần cứng, linh kiện & sửa chữa',
+    icon: <ToolOutlined style={{ fontSize: '20px', color: '#059669' }} />,
+    user: { name: 'Tuấn Anh', role: 'technician', roleName: 'Kỹ thuật viên' }
+  },
+  {
+    id: 'warehouse',
+    name: 'Thủ kho',
+    description: 'Quản lý tồn kho, duyệt xuất & nhập vật tư',
+    icon: <ShopOutlined style={{ fontSize: '20px', color: '#d97706' }} />,
+    user: { name: 'Hải Yến', role: 'warehouse', roleName: 'Thủ kho' }
+  },
+  {
+    id: 'customer',
+    name: 'Khách hàng',
+    description: 'Tra cứu tiến độ & kiểm tra lịch sử máy',
+    icon: <UserOutlined style={{ fontSize: '20px', color: '#7c3aed' }} />,
+    user: { name: 'Văn Nam', role: 'customer', roleName: 'Khách hàng' }
   }
-};
-
-const quickAccounts = [
-  { label: 'Admin', username: 'admin', roleTag: 'red' },
-  { label: 'Lễ tân', username: 'letan01', roleTag: 'blue' },
-  { label: 'Thủ kho', username: 'thukho01', roleTag: 'green' },
-  { label: 'Kỹ thuật viên', username: 'ktv01', roleTag: 'orange' },
 ];
 
 const Login = () => {
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
 
   const from = location.state?.from?.pathname || '/';
 
-  const onFinish = async (values) => {
-    setLoading(true);
-    setErrorMessage('');
-
-    try {
-      const res = await api.login(values.username.trim(), values.password);
-
-      // Bóc tách dữ liệu phản hồi (hỗ trợ cả response bọc ApiResponse hoặc trực tiếp)
-      const payload = res?.data?.data || res?.data || res;
-      const token = payload?.token?.accessToken || res?.token?.accessToken;
-      const rawUser = payload?.user || res?.user;
-
-      if (!token || !rawUser) {
-        throw new Error('Không nhận được thông tin xác thực từ máy chủ.');
-      }
-
-      // Chuẩn hóa role và thông tin người dùng cho Frontend
-      const { role, roleName } = mapBackendRole(rawUser.vaiTro);
-      const userProfile = {
-        id: rawUser.taiKhoanId,
-        name: rawUser.tenDangNhap,
-        username: rawUser.tenDangNhap,
-        vaiTro: rawUser.vaiTro,
-        role,
-        roleName,
-      };
-
-      // Lưu vào Context và localStorage
-      login(userProfile, token);
-
-      message.success(`Đăng nhập thành công! Chào mừng ${userProfile.name} (${roleName}).`);
-      navigate(from, { replace: true });
-    } catch (err) {
-      console.error('Login error:', err);
-      const serverMsg =
-        err.response?.data?.message ||
-        err.response?.data?.errors?.[0] ||
-        err.message ||
-        'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.';
-      setErrorMessage(serverMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickFill = (acc) => {
-    form.setFieldsValue({
-      username: acc.username,
-      password: 'Password@123', // Mật khẩu mẫu gợi ý
-    });
-    setErrorMessage('');
+  const handleLogin = (user) => {
+    login(user);
+    navigate(from, { replace: true });
   };
 
   return (
-    <Layout
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '20px',
-      }}
-    >
-      <Card
-        style={{
-          width: 440,
-          borderRadius: 16,
-          boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-          border: '1px solid rgba(255,255,255,0.08)',
-        }}
-        bodyStyle={{ padding: '36px 32px' }}
-      >
+    <Layout style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px' }}>
+      <div style={{ width: '100%', maxWidth: '640px' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div
             style={{
-              width: 56,
-              height: 56,
-              background: '#1677ff',
-              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              background: '#2563eb',
+              borderRadius: '8px',
               display: 'flex',
-              justifyContent: 'center',
               alignItems: 'center',
-              margin: '0 auto 16px',
-              boxShadow: '0 8px 16px rgba(22,119,255,0.3)',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '18px',
+              margin: '0 auto 14px'
             }}
           >
-            <span style={{ fontSize: '28px' }}>🔧</span>
+            TF
           </div>
-          <Title level={3} style={{ margin: 0, fontWeight: 700 }}>
-            TechFix System
+          <Title level={3} style={{ margin: 0, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>
+            TechFix Platform
           </Title>
-          <Text type="secondary" style={{ fontSize: '14px' }}>
-            Hệ thống quản lý dịch vụ sửa chữa thiết bị
+          <Text style={{ color: '#64748b', fontSize: '13px' }}>
+            Chọn vai trò truy cập để chuyển vào workspace làm việc
           </Text>
         </div>
 
-        {errorMessage && (
-          <Alert
-            message="Lỗi đăng nhập"
-            description={errorMessage}
-            type="error"
-            showIcon
-            closable
-            onClose={() => setErrorMessage('')}
-            style={{ marginBottom: 20, borderRadius: 8 }}
-          />
-        )}
-
-        <Form
-          form={form}
-          name="login_form"
-          layout="vertical"
-          onFinish={onFinish}
-          initialValues={{ username: '', password: '' }}
-          requiredMark={false}
-        >
-          <Form.Item
-            label="Tên đăng nhập"
-            name="username"
-            rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
-          >
-            <Input
-              prefix={<UserOutlined style={{ color: '#8c8c8c' }} />}
-              placeholder="Ví dụ: admin, letan01..."
-              size="large"
-              autoComplete="username"
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Mật khẩu"
-            name="password"
-            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined style={{ color: '#8c8c8c' }} />}
-              placeholder="Nhập mật khẩu"
-              size="large"
-              autoComplete="current-password"
-            />
-          </Form.Item>
-
-          <Form.Item style={{ marginTop: 24, marginBottom: 12 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
-              loading={loading}
-              block
-              style={{
-                height: 44,
-                borderRadius: 8,
-                fontSize: '16px',
-                fontWeight: 600,
-              }}
-            >
-              {loading ? 'Đang xác thực...' : 'Đăng nhập'}
-            </Button>
-          </Form.Item>
-        </Form>
-
-        <Divider style={{ margin: '20px 0 16px', fontSize: '12px', color: '#8c8c8c' }}>
-          Tài khoản mẫu thử nghiệm
-        </Divider>
-
-        <div style={{ textAlign: 'center' }}>
-          <Space wrap size={[8, 8]} style={{ justifyContent: 'center' }}>
-            {quickAccounts.map((acc) => (
-              <Tag
-                key={acc.username}
-                color={acc.roleTag}
-                style={{
-                  cursor: 'pointer',
-                  padding: '4px 10px',
-                  borderRadius: 6,
-                  fontSize: '12px',
-                }}
-                onClick={() => handleQuickFill(acc)}
-              >
-                {acc.label}: <strong>{acc.username}</strong>
-              </Tag>
+        <Card style={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+          <Row gutter={[12, 12]}>
+            {roles.map((role) => (
+              <Col xs={24} sm={12} key={role.id}>
+                <div
+                  onClick={() => handleLogin(role.user)}
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: '#ffffff',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(37, 99, 235, 0.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '6px',
+                      background: '#f1f5f9',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {role.icon}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a' }}>
+                        {role.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        {role.description}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Col>
             ))}
-          </Space>
-          <div style={{ marginTop: 8 }}>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              💡 Nhấn vào thẻ vai trò để điền nhanh tên tài khoản
-            </Text>
-          </div>
-        </div>
-      </Card>
+          </Row>
+        </Card>
+      </div>
     </Layout>
   );
 };

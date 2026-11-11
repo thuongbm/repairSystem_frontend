@@ -20,7 +20,7 @@ const ShiftSummaryTab = ({ cashRegister }) => {
   const expectedCashInDrawer = cashRegister.openingFloat + cashRegister.totalCash;
 
   const handleCloseShift = () => {
-    message.success('Đã lưu biên bản kết sổ quỹ ca làm việc thành công!');
+    message.success('Đã lưu biên bản kết ca làm việc thành công');
     window.print();
   };
 
@@ -29,7 +29,7 @@ const ShiftSummaryTab = ({ cashRegister }) => {
       title: 'Giờ',
       dataIndex: 'time',
       key: 'time',
-      render: (text) => <span style={{ fontFamily: 'monospace' }}>{text}</span>,
+      render: (text) => <span style={{ fontFamily: 'monospace', color: '#64748b' }}>{text}</span>,
     },
     {
       title: 'Mã phiếu',
@@ -41,12 +41,13 @@ const ShiftSummaryTab = ({ cashRegister }) => {
       title: 'Khách hàng',
       dataIndex: 'customer',
       key: 'customer',
-      render: (text) => <strong>{text}</strong>,
+      render: (text) => <span style={{ fontWeight: 500, color: '#0f172a' }}>{text}</span>,
     },
     {
-      title: 'Nội dung giao dịch',
+      title: 'Giao dịch',
       dataIndex: 'type',
       key: 'type',
+      render: (text) => <span style={{ color: '#334155' }}>{text}</span>,
     },
     {
       title: 'Phương thức',
@@ -64,7 +65,7 @@ const ShiftSummaryTab = ({ cashRegister }) => {
       key: 'amount',
       align: 'right',
       render: (val) => (
-        <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
+        <span style={{ fontWeight: 600, color: '#0f172a' }}>
           +{(val || 0).toLocaleString('vi-VN')} ₫
         </span>
       ),
@@ -73,25 +74,36 @@ const ShiftSummaryTab = ({ cashRegister }) => {
       title: 'Thu ngân',
       dataIndex: 'cashier',
       key: 'cashier',
-      render: (text) => <span style={{ fontSize: '12px', color: '#8c8c8c' }}>{text}</span>,
+      render: (text) => <span style={{ fontSize: '12px', color: '#64748b' }}>{text}</span>,
     },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Top Banner thu ngân */}
-      <Card bordered={false} style={{ borderRadius: '12px', background: 'linear-gradient(135deg, #065f46 0%, #047857 100%)', color: 'white' }}>
+      {/* Header Banner */}
+      <Card bordered={false} style={{ borderRadius: '8px', background: '#0f172a', color: 'white' }}>
         <Row gutter={[20, 20]} align="middle" justify="space-between">
           <Col xs={24} md={16}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ width: '56px', height: '56px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '26px' }}>
-                👩‍💼
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                background: '#1e293b',
+                border: '1px solid #334155',
+                borderRadius: '8px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontSize: '15px',
+                fontWeight: 700,
+                color: '#34d399'
+              }}>
+                TN
               </div>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{RECEPTIONIST_INFO.name}</div>
-                <div style={{ fontSize: '13px', opacity: 0.9 }}>{RECEPTIONIST_INFO.role}</div>
-                <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '2px' }}>
-                  {RECEPTIONIST_INFO.counter} • {cashRegister.shiftDate}
+                <div style={{ fontSize: '16px', fontWeight: 600, color: '#f8fafc' }}>{RECEPTIONIST_INFO.name}</div>
+                <div style={{ fontSize: '13px', color: '#94a3b8' }}>
+                  {RECEPTIONIST_INFO.role} • {RECEPTIONIST_INFO.counter} • {cashRegister.shiftDate}
                 </div>
               </div>
             </div>
@@ -100,10 +112,10 @@ const ShiftSummaryTab = ({ cashRegister }) => {
             <Button
               type="primary"
               icon={<LockOutlined />}
-              style={{ background: '#f59e0b', borderColor: '#f59e0b', borderRadius: '6px' }}
+              style={{ borderRadius: '6px' }}
               onClick={handleCloseShift}
             >
-              Chốt sổ ca & In biên bản giao ca
+              Kết sổ ca & In biên bản
             </Button>
           </Col>
         </Row>
@@ -112,45 +124,45 @@ const ShiftSummaryTab = ({ cashRegister }) => {
       {/* KPI Thống kê doanh thu theo nguồn */}
       <Row gutter={[16, 16]}>
         <Col xs={12} sm={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: '12px', color: '#8c8c8c' }}>Tiền mặt ban đầu (Quỹ lẻ)</div>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', margin: '4px 0' }}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>Tiền mặt ban đầu</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
               {cashRegister.openingFloat.toLocaleString('vi-VN')} ₫
             </div>
-            <div style={{ fontSize: '11px', color: '#8c8c8c' }}>Bàn giao từ ca trước</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Quỹ lẻ đầu ca</div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: '12px', color: '#52c41a' }}>💵 Tiền mặt thu trong ca</div>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#52c41a', margin: '4px 0' }}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#16a34a' }}>Tiền mặt trong ca</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
               {cashRegister.totalCash.toLocaleString('vi-VN')} ₫
             </div>
-            <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
-              Tiền trong két: <strong>{expectedCashInDrawer.toLocaleString('vi-VN')} ₫</strong>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>
+              Két tiền: {expectedCashInDrawer.toLocaleString('vi-VN')} ₫
             </div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: '12px', color: '#1677ff' }}>📱 Chuyển khoản VietQR</div>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1677ff', margin: '4px 0' }}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#2563eb' }}>Chuyển khoản VietQR</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
               {cashRegister.totalTransfer.toLocaleString('vi-VN')} ₫
             </div>
-            <div style={{ fontSize: '11px', color: '#8c8c8c' }}>Đã đối soát qua tài khoản ngân hàng</div>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>Đã đối soát tài khoản</div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: '#f0fdf4' }}>
-            <div style={{ fontSize: '12px', color: '#047857' }}>🏆 TỔNG DOANH THU CA</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#047857', margin: '4px 0' }}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>Tổng thu ca</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '2px 0' }}>
               {totalRevenue.toLocaleString('vi-VN')} ₫
             </div>
-            <div style={{ fontSize: '11px', color: '#047857' }}>
-              {cashRegister.transactions.length} lượt giao dịch hoàn tất
+            <div style={{ fontSize: '11px', color: '#64748b' }}>
+              {cashRegister.transactions.length} giao dịch hoàn tất
             </div>
           </Card>
         </Col>
@@ -159,8 +171,8 @@ const ShiftSummaryTab = ({ cashRegister }) => {
       {/* Nhật ký thu tiền */}
       <Card
         bordered={false}
-        style={{ borderRadius: '12px' }}
-        title="Nhật ký các giao dịch thu tiền thời gian thực trong ca"
+        style={{ borderRadius: '8px' }}
+        title={<span style={{ fontSize: '14px', fontWeight: 600 }}>Nhật ký giao dịch ca làm việc</span>}
       >
         <Table
           columns={columns}
