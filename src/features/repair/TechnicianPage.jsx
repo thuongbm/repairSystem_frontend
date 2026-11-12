@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import VatTuTab from './VatTuTab';
@@ -6,6 +6,7 @@ import WorkItemsPanel from './WorkItemsPanel';
 import TicketPhotos from '../../components/TicketPhotos';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
+import { useLocation } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const transitions = {
@@ -20,6 +21,8 @@ const parseChecklist = (value) => {
 
 export default function TechnicianPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const openedRoute = useRef('');
   const [form] = Form.useForm();
   const [tickets, setTickets] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -49,7 +52,7 @@ export default function TechnicianPage() {
       .catch((e) => message.error(errorText(e)));
   }, [user?.role]);
 
-  const open = async (ticket) => {
+  const open = useCallback(async (ticket) => {
     setSelected(ticket);
     setDiagnosis(ticket.ketQuaKiemTra || '');
     form.resetFields();
@@ -62,7 +65,21 @@ export default function TechnicianPage() {
       setIssued(parts.data || []);
     }
     catch (e) { message.error(errorText(e)); }
-  };
+  }, [form]);
+
+  useEffect(() => {
+    const id = Number(new URLSearchParams(location.search).get('ticket'));
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    const routeKey = `${location.key}:${id}`;
+    if (openedRoute.current === routeKey) return;
+    const ticket = tickets.find((item) => item.id === id);
+    if (!ticket) return;
+    const timer = window.setTimeout(() => {
+      openedRoute.current = routeKey;
+      open(ticket);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [location.key, location.search, tickets, open]);
 
   const refreshSelected = async () => {
     const detail = (await api.getChiTietPhieuSuaChua(selected.id)).data;

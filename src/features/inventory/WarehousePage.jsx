@@ -47,6 +47,7 @@ import {
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
+import { useLocation } from 'react-router-dom';
 import MauLinhKienModal from './MauLinhKienModal';
 import BaoHanhNccTab from './BaoHanhNccTab';
 import StockControlTab from './StockControlTab';
@@ -59,6 +60,7 @@ const errorText = (error) => error.response?.data?.message || error.message || '
 
 const WarehousePage = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [form] = Form.useForm();
   const [khoForm] = Form.useForm();
   const [isKhoModalVisible, setIsKhoModalVisible] = useState(false);
@@ -67,7 +69,8 @@ const WarehousePage = () => {
   const [minStockForm] = Form.useForm();
 
   // --- Active Tab ---
-  const [activeTab, setActiveTab] = useState('inventory');
+  const [activeTab, setActiveTab] = useState(() =>
+    new URLSearchParams(location.search).get('tab') === 'alerts' ? 'alerts' : 'inventory');
 
   // --- Loading States ---
   const [loadingInventory, setLoadingInventory] = useState(false);
@@ -86,9 +89,19 @@ const WarehousePage = () => {
   const [linhKienList, setLinhKienList] = useState([]);
 
   // --- State lọc & tìm kiếm tồn kho ---
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => new URLSearchParams(location.search).get('search') || '');
   const [selectedKhoId, setSelectedKhoId] = useState(null);
   const [stockStatusFilter, setStockStatusFilter] = useState('all'); // 'all' | 'low_stock' | 'out_of_stock'
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const timer = window.setTimeout(() => {
+      const tab = params.get('tab');
+      if (tab === 'inventory' || tab === 'alerts') setActiveTab(tab);
+      if (params.has('search')) setSearchTerm(params.get('search') || '');
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [location.key, location.search]);
 
   // --- State lọc lịch sử nhập ---
   const [historyStatusFilter, setHistoryStatusFilter] = useState('all');

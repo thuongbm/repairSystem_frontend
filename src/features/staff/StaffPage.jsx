@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Card, Row, Col, Typography, Table, Select, Switch, Avatar, Space, Tag, 
-  Button, Input, Modal, Form, message, Tooltip 
+  Button, Collapse, Input, Modal, Form, message, Tooltip
 } from 'antd';
 import { 
   CheckOutlined, 
@@ -302,7 +302,7 @@ const StaffPage = () => {
   return (
     <>
       <Row gutter={24}>
-        <Col span={16}>
+        <Col xs={24} xl={16}>
           <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', height: '100%' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
@@ -373,16 +373,17 @@ const StaffPage = () => {
         </Col>
 
         {/* Cột ma trận phân quyền bên phải */}
-        <Col span={8}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', height: '100%' }}>
+        <Col xs={24} xl={8}>
+          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <SafetyCertificateOutlined style={{ color: '#2563eb', fontSize: '18px' }} />
-              <Title level={4} style={{ margin: 0 }}>Ma trận phân quyền</Title>
+              <Title level={4} style={{ margin: 0 }}>Quyền theo vai trò</Title>
             </div>
             <Text type="secondary" style={{ display: 'block', marginBottom: '24px', fontSize: '13px' }}>
-              Quyền hạn hệ thống phân theo từng vai trò nhân viên.
+              Xem phạm vi thao tác của từng nhóm nhân viên.
             </Text>
 
+            <Collapse size="small" items={[{ key: 'permissions', label: 'Xem chi tiết quyền', children: <div>
             <div style={{ marginBottom: '20px' }}>
               <Tag color="red" style={{ borderRadius: '12px', padding: '2px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
                 <Space size={4}><UserIcon size={12} /> Quản trị viên (ADMIN)</Space>
@@ -427,6 +428,7 @@ const StaffPage = () => {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#4b5563', fontSize: '13px' }}><CheckOutlined style={{ color: '#10b981', marginTop: '3px' }} /> Cập nhật tiến độ sửa chữa</div>
               </div>
             </div>
+            </div> }]} />
           </Card>
         </Col>
       </Row>

@@ -66,11 +66,132 @@
   justify-content: space-between;
 }
 
+.layout-header h1 {
+  white-space: nowrap;
+}
+
+.layout-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  line-height: normal;
+}
+
+.header-icon-button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569;
+}
+
+.header-popover-content {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+}
+
+.header-popover-title {
+  padding: 4px 8px 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.header-popover-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 4px 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.header-popover-heading strong,
+.header-popover-heading span {
+  display: block;
+}
+
+.header-popover-heading span {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.header-result-list {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.header-result {
+  display: block;
+  width: 100%;
+  padding: 10px 8px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  cursor: pointer;
+}
+
+.header-result:hover,
+.header-result:focus-visible {
+  background: #eff6ff;
+  outline: none;
+}
+
+.header-result-main,
+.header-result-detail {
+  display: block;
+}
+
+.header-result-main {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.header-result-detail {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.header-popover-state,
+.header-popover-hint {
+  padding: 14px 8px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.header-popover-error {
+  color: #b42318;
+}
+
+.header-popover-hint {
+  padding: 9px 8px 4px;
+}
+
 .layout-content-wrapper {
   padding: 20px 24px;
   max-width: 1600px;
   margin: 0 auto;
   width: 100%;
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.page-heading span {
+  display: block;
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 /* Metric / Stat Card */
@@ -139,8 +260,16 @@
     padding: 0 12px !important;
   }
 
-  .layout-header > div:last-child {
-    gap: 10px !important;
+  .layout-header-actions {
+    gap: 8px;
+  }
+
+  .header-search-input {
+    width: clamp(110px, 30vw, 190px);
+  }
+
+  .layout-header h1 {
+    font-size: 14px !important;
   }
 
   .layout-content-wrapper {

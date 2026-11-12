@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber, Modal,
   Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
@@ -8,6 +8,7 @@ import OutgoingInvoicePanel from './OutgoingInvoicePanel';
 import TicketPhotos from '../../components/TicketPhotos';
 import WorkItemsPanel from '../repair/WorkItemsPanel';
 import { useAuth } from '../../context/useAuth';
+import { useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 
 const { Title, Text } = Typography;
@@ -24,6 +25,8 @@ const warrantyNext = {
 
 export default function ReceptionPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const openedRoute = useRef('');
   const [tickets, setTickets] = useState([]);
   const [services, setServices] = useState([]);
   const [parts, setParts] = useState([]);
@@ -142,6 +145,25 @@ export default function ReceptionPage() {
     setCancelReason('');
     loadDetail(row.id);
   };
+
+  useEffect(() => {
+    const id = Number(new URLSearchParams(location.search).get('ticket'));
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    const routeKey = `${location.key}:${id}`;
+    if (openedRoute.current === routeKey) return;
+    const row = tickets.find((ticket) => ticket.id === id);
+    if (!row) return;
+    const timer = window.setTimeout(() => {
+      openedRoute.current = routeKey;
+      setSelected(row);
+      setIntakeConfirmation(null);
+      assignmentForm.setFieldsValue({ kyThuatVienId: row.kyThuatVienId ?? null });
+      returnDateForm.setFieldsValue({ ngayHenTra: row.ngayHenTra ? dayjs(row.ngayHenTra) : null });
+      setCancelReason('');
+      loadDetail(row.id);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [location.key, location.search, tickets, assignmentForm, returnDateForm, loadDetail]);
 
   const updateAppointment = async (id, payload) => {
     setBusy(true);
@@ -469,9 +491,9 @@ export default function ReceptionPage() {
   </Space>;
 
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-    <Title level={3}>Tiếp nhận, báo giá và thu ngân</Title>
-    <Alert type="info" showIcon message="Dữ liệu lấy trực tiếp từ CSDL V3" description="Tạo phiếu → báo giá và ghi dịch vụ → sửa/xuất linh kiện → lập hóa đơn → thu tiền → bàn giao → bảo hành." />
-    <Space wrap><Input.Search placeholder="Mã phiếu, khách, thiết bị" allowClear style={{ width: 300 }}
+    <div className="page-heading"><div><Title level={3} style={{ margin: 0 }}>Tiếp nhận & thu ngân</Title>
+      <span>Phiếu sửa chữa, lịch hẹn và thanh toán</span></div></div>
+    <Space wrap><Input.Search placeholder="Mã phiếu, khách, SĐT, thiết bị" allowClear style={{ width: 300 }}
       value={search} onChange={(e) => setSearch(e.target.value)} />
       <Button onClick={loadTickets}>Làm mới</Button>
       <Button onClick={() => { setCodeOpen(true); setCustomerPhone('');
@@ -500,7 +522,7 @@ export default function ReceptionPage() {
       ]} />
     </Card>
     <Table loading={loading} dataSource={tickets.filter((x) =>
-      `${x.maPhieu} ${x.tenKhachHang} ${x.tenThietBi}`.toLowerCase().includes(search.toLowerCase()))}
+      `${x.maPhieu} ${x.tenKhachHang} ${x.soDienThoaiKhach || ''} ${x.tenThietBi}`.toLowerCase().includes(search.toLowerCase()))}
       rowKey="id" scroll={{ x: 850 }} pagination={{ pageSize: 10 }} columns={[
         { title: 'Mã phiếu', dataIndex: 'maPhieu' },
         { title: 'Khách hàng', dataIndex: 'tenKhachHang' },

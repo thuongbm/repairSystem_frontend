@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
 import { api } from '../../services/api';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
 const money = (n) => `${Number(n || 0).toLocaleString('vi-VN')} ₫`;
 
@@ -45,10 +45,11 @@ export default function FinancialReconciliationPage() {
   const unpaid = jobs.filter((x) => x.congDuyet != null && !x.chiTraLuc);
 
   return <div>
-    <Title level={3}>Đối soát tài chính và bảng công</Title>
-    <Alert type="info" showIcon style={{ marginBottom: 16 }}
-      message="Đối chiếu chứng từ mua vào, hóa đơn bán ra, tiền đã thu và công thợ"
-      description="Bảng công dùng số tiền đề xuất theo từng việc, sau đó quản lý duyệt. Việc ghi chi trả cần mã chứng từ; hệ thống chưa tự chuyển tiền hoặc tính thuế." />
+    <div className="page-heading">
+      <div><Title level={3} style={{ margin: 0 }}>Đối soát tài chính</Title>
+        <span>Hóa đơn, công nợ và bảng công thợ</span></div>
+      <Button onClick={load}>Làm mới</Button>
+    </div>
     <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
       <Col xs={12} md={6}><Card><Statistic title="Phiếu nhập thiếu hóa đơn" value={receipts.filter((x) => !x.hoaDon).length} /></Card></Col>
       <Col xs={12} md={6}><Card><Statistic title="Hóa đơn đầu vào lệch" value={receipts.filter((x) => x.hoaDon?.trangThai === 'CHENH_LECH').length} /></Card></Col>
@@ -92,6 +93,7 @@ export default function FinancialReconciliationPage() {
     ]} />
     <Modal open={!!action} title={action?.kind === 'approve' ? 'Duyệt tiền công' : 'Ghi chi trả tiền công'}
       onCancel={() => setAction(null)} footer={null} destroyOnHidden>
+      {action?.kind === 'pay' && <Text type="secondary">Thao tác này ghi nhận chứng từ; hệ thống không tự chuyển tiền.</Text>}
       <Form form={form} layout="vertical" onFinish={submit}>
         {action?.kind === 'approve' ? <>
           <Form.Item name="soTien" label="Số tiền được duyệt" rules={[{ required: true }]}>

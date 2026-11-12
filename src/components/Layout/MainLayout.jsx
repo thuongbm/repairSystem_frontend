@@ -1,11 +1,9 @@
-import { Layout, Menu, Input, Avatar, Badge, Dropdown, Button } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Button } from 'antd';
 import {
   DashboardOutlined,
   LaptopOutlined,
   DollarOutlined,
   TeamOutlined,
-  SearchOutlined,
-  BellOutlined,
   ToolOutlined,
   AppstoreOutlined,
   LogoutOutlined,
@@ -14,6 +12,8 @@ import {
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import GlobalSearch from './GlobalSearch';
+import WorkNotifications from './WorkNotifications';
 
 const { Header, Sider, Content } = Layout;
 
@@ -26,7 +26,7 @@ const MainLayout = () => {
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
-      label: 'Tổng quan hệ thống',
+      label: 'Trang chủ',
       roles: ['admin', 'technician', 'warehouse', 'receptionist'],
     },
     {
@@ -99,7 +99,7 @@ const MainLayout = () => {
       { type: 'divider' },
       {
         key: 'customer-portal',
-        label: 'Xem Cổng Khách Hàng (Trang chủ)',
+        label: 'Cổng khách hàng',
         icon: <GlobalOutlined />,
       },
       {
@@ -174,58 +174,27 @@ const MainLayout = () => {
           className="layout-sidebar-menu"
         />
 
-        <div style={{ marginTop: 'auto', padding: '12px 14px', borderTop: '1px solid #1e293b' }}>
-          <Button
-            block
-            icon={<GlobalOutlined />}
-            onClick={() => navigate('/')}
-            style={{ color: '#cbd5e1', borderColor: '#334155', background: '#1e293b' }}
-          >
-            Cổng Khách Hàng
-          </Button>
-        </div>
       </Sider>
 
       <Layout style={{ background: '#f8fafc' }}>
         <Header className="layout-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#0f172a' }}>
-              {currentMenu?.label || 'Tổng quan'}
+              {currentMenu?.label || 'Trang chủ'}
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', lineHeight: 'normal' }}>
+          <div className="layout-header-actions">
             <Button
               icon={<GlobalOutlined />}
               onClick={() => navigate('/')}
               className="mobile-hide"
             >
-              Cổng Khách Hàng
+              Cổng khách hàng
             </Button>
 
-            <Input
-              placeholder="Tìm kiếm mã phiếu, SĐT..."
-              prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-              className="header-search-input mobile-hide"
-            />
-
-            <Badge dot color="#2563eb" offset={[-2, 2]}>
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '6px',
-                  border: '1px solid #e2e8f0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#475569'
-                }}
-              >
-                <BellOutlined style={{ fontSize: '15px' }} />
-              </div>
-            </Badge>
+            <GlobalSearch />
+            <WorkNotifications />
 
             <Dropdown menu={userDropdownMenu} trigger={['click']} placement="bottomRight">
               <div

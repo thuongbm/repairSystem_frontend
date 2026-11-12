@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Row, Space, Statistic, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
+const statusLabels = {
+  TIEP_NHAN: 'Tiếp nhận', DANG_SUA: 'Đang sửa', CHO_LINH_KIEN: 'Chờ linh kiện',
+  HOAN_THANH: 'Hoàn thành', DA_TRA: 'Đã trả', HUY: 'Đã hủy',
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -13,6 +17,9 @@ export default function DashboardPage() {
   const [tickets, setTickets] = useState([]);
   const [claims, setClaims] = useState([]);
   const [lowStock, setLowStock] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -24,11 +31,12 @@ export default function DashboardPage() {
         if (results[1].status === 'fulfilled') setClaims(results[1].value.data || []);
         if (results[2].status === 'fulfilled' && results[2].value)
           setLowStock(results[2].value.data || []);
-        if (results[0].status === 'rejected')
-          message.error(results[0].reason.response?.data?.message || 'Không tải được phiếu sửa chữa.');
+        setError(results.some((result) => result.status === 'rejected')
+          ? 'Một số số liệu chưa tải được. Hãy thử làm mới.' : '');
+        setLoading(false);
       });
     return () => { active = false; };
-  }, [user?.role]);
+  }, [user?.role, reloadKey]);
 
   const openCount = tickets.filter((x) => !['DA_TRA', 'HUY'].includes(x.trangThai)).length;
   const readyCount = tickets.filter((x) => x.trangThai === 'HOAN_THANH').length;
@@ -41,26 +49,30 @@ export default function DashboardPage() {
   ];
 
   return <Space direction="vertical" size="large" style={{ width: '100%' }}>
-    <Title level={3}>Tổng quan từ CSDL V3</Title>
-    <Alert type="info" showIcon message="Số liệu hiện hành" description="Các chỉ số dưới đây đọc từ phiếu sửa chữa, bảo hành và cảnh báo kho; CSDL mới sẽ hiển thị 0 cho tới khi có nghiệp vụ." />
+    <div className="page-heading">
+      <div><Title level={3} style={{ margin: 0 }}>Trang chủ</Title>
+        <span>Hoạt động sửa chữa và kho hiện tại</span></div>
+      <Button loading={loading} onClick={() => { setLoading(true); setReloadKey((key) => key + 1); }}>Làm mới</Button>
+    </div>
+    {error && <Alert type="warning" showIcon message={error} />}
     <Row gutter={[16, 16]}>
-      <Col xs={24} sm={12} lg={6}><Card><Statistic title="Phiếu chưa kết thúc" value={openCount} /></Card></Col>
-      <Col xs={24} sm={12} lg={6}><Card><Statistic title="Sẵn sàng bàn giao" value={readyCount} /></Card></Col>
-      <Col xs={24} sm={12} lg={6}><Card><Statistic title="Bảo hành đang xử lý" value={warrantyCount} /></Card></Col>
+      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Phiếu chưa kết thúc" value={openCount} /></Card></Col>
+      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Sẵn sàng bàn giao" value={readyCount} /></Card></Col>
+      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Bảo hành đang xử lý" value={warrantyCount} /></Card></Col>
       {['admin', 'warehouse'].includes(user?.role) &&
-        <Col xs={24} sm={12} lg={6}><Card><Statistic title="Cảnh báo tồn kho" value={lowStock.length} /></Card></Col>}
+        <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Cảnh báo tồn kho" value={lowStock.length} /></Card></Col>}
     </Row>
     <Space wrap>{targets.filter((x) => x.role.includes(user?.role)).map((x) =>
       <Button key={x.path} onClick={() => navigate(x.path)}>{x.label}</Button>)}</Space>
     <Card title="Phiếu gần đây">
-      <Table dataSource={tickets.slice(0, 10)} rowKey="id" pagination={false} columns={[
+      <Table dataSource={tickets.slice(0, 10)} rowKey="id" pagination={false} loading={loading}
+        locale={{ emptyText: 'Chưa có phiếu sửa chữa' }} scroll={{ x: 700 }} columns={[
         { title: 'Mã', dataIndex: 'maPhieu' },
         { title: 'Thiết bị', dataIndex: 'tenThietBi' },
         { title: 'Khách hàng', dataIndex: 'tenKhachHang', render: (v) => v || '—' },
-        { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => dayjs(v).format('DD/MM/YYYY') },
-        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+        { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => v ? dayjs(v).format('DD/MM/YYYY') : '—' },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{statusLabels[v] || v}</Tag> },
       ]} />
-      {user?.role === 'technician' && <Text type="secondary">Kỹ thuật viên chỉ thấy phiếu mình phụ trách.</Text>}
     </Card>
   </Space>;
 }
