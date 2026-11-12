@@ -1,34 +1,29 @@
 import { useState } from 'react';
-import { 
-  Card, 
-  Table, 
-  Row, 
-  Col, 
-  Input, 
-  Select, 
-  Button, 
-  Tag, 
-  Space, 
-  Typography, 
-  Steps, 
-  Radio, 
-  Dropdown, 
-  message, 
-  Modal, 
-  Tooltip, 
-  Alert
+import {
+  Card,
+  Table,
+  Row,
+  Col,
+  Input,
+  Select,
+  Button,
+  Tag,
+  Space,
+  Typography,
+  Radio,
+  Dropdown,
+  message,
+  Modal
 } from 'antd';
-import { 
-  SearchOutlined, 
-  AppstoreOutlined, 
-  BarsOutlined, 
-  ToolOutlined, 
-  ClockCircleOutlined, 
-  ShoppingCartOutlined, 
-  DollarOutlined, 
-  RightOutlined,
+import {
+  SearchOutlined,
+  AppstoreOutlined,
+  BarsOutlined,
+  ToolOutlined,
+  ClockCircleOutlined,
+  ShoppingCartOutlined,
+  DollarOutlined,
   EyeOutlined,
-  UserOutlined,
   PhoneOutlined,
   DownOutlined
 } from '@ant-design/icons';
@@ -36,60 +31,40 @@ import { STATUS_STEPS } from './mockData';
 
 const { Text } = Typography;
 
-const getStatusColor = (status) => {
+const getStatusBadge = (status) => {
   switch (status) {
     case 'Bắt đầu nhận máy':
-      return { tag: 'default' };
+      return <Tag color="default">{status}</Tag>;
     case 'Đang kiểm tra':
-      return { tag: 'processing' };
+      return <Tag color="processing">{status}</Tag>;
     case 'Đang sửa chữa':
-      return { tag: 'blue' };
+      return <Tag color="blue">{status}</Tag>;
     case 'Chờ linh kiện':
-      return { tag: 'warning' };
+      return <Tag color="warning">{status}</Tag>;
     case 'Chờ duyệt phát sinh':
-      return { tag: 'orange' };
+      return <Tag color="volcano">{status}</Tag>;
     case 'Hoàn thành':
-      return { tag: 'success' };
+      return <Tag color="success">{status}</Tag>;
     case 'Đã trả máy':
-      return { tag: 'cyan' };
+      return <Tag color="purple">{status}</Tag>;
     default:
-      return { tag: 'default' };
+      return <Tag>{status}</Tag>;
   }
 };
 
-const getStepCurrent = (status) => {
-  switch (status) {
-    case 'Bắt đầu nhận máy':
-      return 0;
-    case 'Đang kiểm tra':
-      return 1;
-    case 'Đang sửa chữa':
-    case 'Chờ linh kiện':
-    case 'Chờ duyệt phát sinh':
-      return 2;
-    case 'Hoàn thành':
-      return 3;
-    case 'Đã trả máy':
-      return 4;
-    default:
-      return 0;
-  }
-};
-
-const AssignedJobsTab = ({ 
-  jobs, 
-  onUpdateJobStatus, 
-  onOpenDiagnosis, 
-  onOpenProposal, 
-  onOpenRequisition 
+const AssignedJobsTab = ({
+  jobs,
+  onUpdateJobStatus,
+  onOpenDiagnosis,
+  onOpenProposal,
+  onOpenRequisition
 }) => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' (Mobile/Tablet friendly) | 'table' (PC)
+  const [viewMode, setViewMode] = useState('grid');
   const [detailModalJob, setDetailModalJob] = useState(null);
 
-  // Filter jobs
   const filteredJobs = jobs.filter((job) => {
     const query = searchText.toLowerCase();
     const matchSearch =
@@ -104,88 +79,63 @@ const AssignedJobsTab = ({
     return matchSearch && matchStatus && matchPriority;
   });
 
-  const nextStatusMap = {
-    'Bắt đầu nhận máy': 'Đang kiểm tra',
-    'Đang kiểm tra': 'Đang sửa chữa',
-    'Đang sửa chữa': 'Hoàn thành',
-    'Chờ linh kiện': 'Đang sửa chữa',
-    'Chờ duyệt phát sinh': 'Đang sửa chữa',
-    'Hoàn thành': 'Đã trả máy',
-    'Đã trả máy': 'Đã trả máy',
-  };
-
-  const handleNextStep = (job) => {
-    const next = nextStatusMap[job.status];
-    if (next && next !== job.status) {
-      onUpdateJobStatus(job.key, next);
-      message.success(`Ca máy ${job.code} đã chuyển trạng thái: ${next}`);
-    } else {
-      message.info(`Ca máy ${job.code} đã ở trạng thái kết thúc.`);
-    }
-  };
-
   const statusMenuItems = () => [
     { key: 'Bắt đầu nhận máy', label: 'Bắt đầu nhận máy' },
     { key: 'Đang kiểm tra', label: 'Đang kiểm tra (Chẩn đoán)' },
-    { key: 'Đang sửa chữa', label: 'Đang sửa chữa (Thao tác phần cứng)' },
-    { key: 'Chờ linh kiện', label: 'Chờ linh kiện (Đã tạo phiếu kho)' },
-    { key: 'Chờ duyệt phát sinh', label: 'Chờ duyệt phát sinh (Gửi lễ tân)' },
-    { key: 'Hoàn thành', label: 'Hoàn thành (Test QC xong)' },
-    { key: 'Đã trả máy', label: 'Đã trả máy (Bàn giao khách)' },
+    { key: 'Đang sửa chữa', label: 'Đang sửa chữa' },
+    { key: 'Chờ linh kiện', label: 'Chờ linh kiện' },
+    { key: 'Chờ duyệt phát sinh', label: 'Chờ duyệt phát sinh' },
+    { key: 'Hoàn thành', label: 'Hoàn thành' },
+    { key: 'Đã trả máy', label: 'Đã trả máy' },
   ];
 
   const handleStatusMenuClick = (job, e) => {
     onUpdateJobStatus(job.key, e.key);
-    message.success(`Đã cập nhật trạng thái ${job.code} thành: ${e.key}`);
+    message.success(`Đã cập nhật ${job.code} -> ${e.key}`);
   };
 
-  // Table Columns for PC view
   const columns = [
     {
       title: 'Mã phiếu',
       dataIndex: 'code',
       key: 'code',
+      width: 120,
       render: (text, record) => (
-        <div>
-          <Text strong style={{ fontFamily: 'monospace', color: '#1677ff', fontSize: '14px' }}>
-            {text}
-          </Text>
+        <Space direction="vertical" size={2}>
+          <Text strong style={{ fontFamily: 'monospace', color: '#2563eb' }}>{text}</Text>
           {record.priority === 'Khẩn cấp' && (
-            <div>
-              <Tag color="error" style={{ fontSize: '10px', padding: '0 4px', margin: '2px 0 0 0' }}>
-                GẤP
-              </Tag>
-            </div>
+            <Tag color="error" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>GẤP</Tag>
           )}
-        </div>
+        </Space>
       ),
     },
     {
-      title: 'Khách hàng & SĐT',
+      title: 'Khách hàng',
       key: 'customer',
+      width: 180,
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{record.customer}</div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
-            <PhoneOutlined /> {record.phone}
+          <div style={{ fontWeight: 600, color: '#0f172a' }}>{record.customer}</div>
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
+            <PhoneOutlined style={{ marginRight: 4 }} />
+            {record.phone}
           </div>
         </div>
       ),
     },
     {
-      title: 'Thiết bị & Lỗi khai báo',
+      title: 'Thiết bị & Tình trạng',
       key: 'device',
       render: (_, record) => (
-        <div style={{ maxWidth: 300 }}>
-          <div style={{ fontWeight: 600, color: '#1f2937' }}>{record.device}</div>
-          <div style={{ fontSize: '12px', color: '#595959', marginTop: '2px' }}>
-            <Text type="secondary">Khách báo: </Text>
+        <div style={{ maxWidth: 320 }}>
+          <div style={{ fontWeight: 600, color: '#0f172a' }}>{record.device}</div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
             {record.customerIssue}
           </div>
           {record.actualDiagnosis && (
-            <div style={{ marginTop: '4px' }}>
-              <Tag color="blue" style={{ fontSize: '11px', margin: '2px' }}>
-                ✓ Đã chẩn đoán: {record.actualDiagnosis.tags[0] || 'Lỗi mạch'}
+            <div style={{ marginTop: 4 }}>
+              <Tag color="blue" style={{ fontSize: '11px' }}>
+                {record.actualDiagnosis.tags[0] || 'Đã chẩn đoán'}
               </Tag>
             </div>
           )}
@@ -196,69 +146,63 @@ const AssignedJobsTab = ({
       title: 'Hẹn trả máy',
       dataIndex: 'appointmentDate',
       key: 'appointmentDate',
+      width: 150,
       render: (text) => (
-        <div>
-          <ClockCircleOutlined style={{ marginRight: '4px', color: '#fa8c16' }} />
-          <Text style={{ fontSize: '12px', fontWeight: 500 }}>{text}</Text>
+        <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: 500 }}>
+          <ClockCircleOutlined style={{ marginRight: 4, color: '#64748b' }} />
+          {text}
         </div>
       ),
     },
     {
-      title: 'Trạng thái xử lý',
+      title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status, record) => {
-        const { tag } = getStatusColor(status);
-        return (
-          <Dropdown
-            menu={{
-              items: statusMenuItems(record),
-              onClick: (e) => handleStatusMenuClick(record, e),
-            }}
-          >
-            <Button size="small" style={{ borderRadius: '12px', fontSize: '12px' }}>
-              <Tag color={tag} style={{ border: 'none', margin: 0 }}>{status}</Tag>
-              <DownOutlined style={{ fontSize: '10px' }} />
-            </Button>
-          </Dropdown>
-        );
-      },
+      width: 160,
+      render: (status, record) => (
+        <Dropdown
+          menu={{
+            items: statusMenuItems(),
+            onClick: (e) => handleStatusMenuClick(record, e),
+          }}
+        >
+          <div style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {getStatusBadge(status)}
+            <DownOutlined style={{ fontSize: '9px', color: '#94a3b8' }} />
+          </div>
+        </Dropdown>
+      ),
     },
     {
-      title: 'Thao tác kỹ thuật',
+      title: 'Thao tác',
       key: 'actions',
+      width: 240,
       render: (_, record) => (
-        <Space size="small" wrap>
-          <Tooltip title="Ghi chép kết quả chẩn đoán lỗi thực tế với mẫu tích chọn nhanh">
-            <Button
-              type={record.actualDiagnosis ? 'default' : 'primary'}
-              size="small"
-              icon={<ToolOutlined />}
-              onClick={() => onOpenDiagnosis(record)}
-            >
-              {record.actualDiagnosis ? 'Sửa chẩn đoán' : 'Chẩn đoán'}
-            </Button>
-          </Tooltip>
+        <Space size={6}>
+          <Button
+            type={record.actualDiagnosis ? 'default' : 'primary'}
+            size="small"
+            icon={<ToolOutlined />}
+            onClick={() => onOpenDiagnosis(record)}
+          >
+            {record.actualDiagnosis ? 'Sửa' : 'Chẩn đoán'}
+          </Button>
 
-          <Tooltip title="Lĩnh/xuất linh kiện kho gắn với mã phiếu này">
-            <Button
-              size="small"
-              icon={<ShoppingCartOutlined />}
-              onClick={() => onOpenRequisition(record)}
-            >
-              Lĩnh vật tư
-            </Button>
-          </Tooltip>
+          <Button
+            size="small"
+            icon={<ShoppingCartOutlined />}
+            onClick={() => onOpenRequisition(record)}
+          >
+            Vật tư
+          </Button>
 
-          <Tooltip title="Đề xuất lỗi mới / chi phí phát sinh gửi lễ tân gọi khách">
-            <Button
-              size="small"
-              icon={<DollarOutlined />}
-              onClick={() => onOpenProposal(record)}
-            >
-              Báo phát sinh
-            </Button>
-          </Tooltip>
+          <Button
+            size="small"
+            icon={<DollarOutlined />}
+            onClick={() => onOpenProposal(record)}
+          >
+            Báo giá
+          </Button>
 
           <Button
             size="small"
@@ -273,23 +217,23 @@ const AssignedJobsTab = ({
 
   return (
     <div>
-      {/* Control bar */}
-      <Card bordered={false} style={{ borderRadius: '12px', marginBottom: '16px' }}>
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
+      {/* Control Filter Bar */}
+      <Card bodyStyle={{ padding: '12px 16px' }} style={{ marginBottom: 14 }}>
+        <Row gutter={[12, 12]} align="middle" justify="space-between">
           <Col xs={24} md={16}>
             <Space wrap size="middle">
               <Input
-                placeholder="Tìm mã phiếu, khách hàng, số điện thoại, thiết bị..."
-                prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+                placeholder="Tìm mã phiếu, khách, model..."
+                prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 allowClear
-                style={{ width: 280, borderRadius: '6px' }}
+                style={{ width: 240 }}
               />
               <Select
                 value={statusFilter}
                 onChange={setStatusFilter}
-                style={{ width: 170 }}
+                style={{ width: 160 }}
                 options={[
                   { value: 'ALL', label: 'Tất cả trạng thái' },
                   ...STATUS_STEPS.map((s) => ({ value: s.title, label: s.title })),
@@ -298,11 +242,11 @@ const AssignedJobsTab = ({
               <Select
                 value={priorityFilter}
                 onChange={setPriorityFilter}
-                style={{ width: 130 }}
+                style={{ width: 140 }}
                 options={[
                   { value: 'ALL', label: 'Mọi độ ưu tiên' },
-                  { value: 'Khẩn cấp', label: '🔴 Khẩn cấp' },
-                  { value: 'Bình thường', label: '⚪ Bình thường' },
+                  { value: 'Khẩn cấp', label: 'Khẩn cấp' },
+                  { value: 'Bình thường', label: 'Bình thường' },
                 ]}
               />
             </Space>
@@ -310,196 +254,126 @@ const AssignedJobsTab = ({
 
           <Col xs={24} md={8} style={{ textAlign: 'right' }}>
             <Space>
-              <Text type="secondary" style={{ fontSize: '13px' }}>
-                Đang hiển thị: <Text strong>{filteredJobs.length}</Text> ca máy
+              <Text style={{ fontSize: '12px', color: '#64748b' }}>
+                Tổng: <strong style={{ color: '#0f172a' }}>{filteredJobs.length}</strong>
               </Text>
               <Radio.Group
                 value={viewMode}
                 onChange={(e) => setViewMode(e.target.value)}
-                buttonStyle="solid"
+                size="small"
               >
-                <Radio.Button value="grid">
-                  <AppstoreOutlined /> <span className="mobile-hide">Thẻ (Mobile/Tablet)</span>
-                </Radio.Button>
-                <Radio.Button value="table">
-                  <BarsOutlined /> <span className="mobile-hide">Bảng (PC)</span>
-                </Radio.Button>
+                <Radio.Button value="grid"><AppstoreOutlined /></Radio.Button>
+                <Radio.Button value="table"><BarsOutlined /></Radio.Button>
               </Radio.Group>
             </Space>
           </Col>
         </Row>
       </Card>
 
-      {/* Grid View (Touch-friendly for Mobile / Tablet) */}
+      {/* Grid View */}
       {viewMode === 'grid' ? (
-        <Row gutter={[16, 16]}>
-          {filteredJobs.map((job) => {
-            const { tag } = getStatusColor(job.status);
-            const stepCurrent = getStepCurrent(job.status);
-
-            return (
-              <Col xs={24} md={12} xl={8} key={job.key}>
-                <Card
-                  bordered={false}
-                  style={{
-                    borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    borderTop: job.priority === 'Khẩn cấp' ? '3px solid #ff4d4f' : '3px solid #1677ff',
-                  }}
-                  bodyStyle={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px' }}
-                >
-                  {/* Card Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Text strong style={{ fontFamily: 'monospace', fontSize: '16px', color: '#1677ff' }}>
-                          {job.code}
-                        </Text>
-                        {job.priority === 'Khẩn cấp' && (
-                          <Tag color="red" style={{ margin: 0, fontWeight: 'bold', fontSize: '11px' }}>
-                            ⚡ CẦN GẤP
-                          </Tag>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '2px' }}>
-                        Nhận: {job.receiveDate} | Hẹn: <span style={{ color: '#d46b08', fontWeight: 600 }}>{job.appointmentDate}</span>
-                      </div>
-                    </div>
-
-                    <Dropdown
-                      menu={{
-                        items: statusMenuItems(job),
-                        onClick: (e) => handleStatusMenuClick(job, e),
-                      }}
-                      trigger={['click']}
-                    >
-                      <Button size="small" style={{ borderRadius: '12px', height: '26px' }}>
-                        <Tag color={tag} style={{ border: 'none', margin: 0 }}>{job.status}</Tag>
-                        <DownOutlined style={{ fontSize: '10px' }} />
-                      </Button>
-                    </Dropdown>
-                  </div>
-
-                  {/* Device & Customer */}
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#1f2937' }}>
-                      {job.device}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#595959', marginTop: '2px' }}>
-                      <UserOutlined style={{ marginRight: '4px' }} />
-                      <Text strong>{job.customer}</Text> • <PhoneOutlined style={{ marginLeft: '4px', marginRight: '4px' }} />
-                      <a href={`tel:${job.phone}`}>{job.phone}</a>
-                    </div>
-                  </div>
-
-                  {/* Customer Initial Issue */}
-                  <div style={{ background: '#f5f5f5', padding: '10px 12px', borderRadius: '8px', marginBottom: '10px', fontSize: '13px' }}>
-                    <div style={{ fontSize: '11px', color: '#8c8c8c', fontWeight: 600, textTransform: 'uppercase' }}>
-                      Khai báo ban đầu của khách:
-                    </div>
-                    <div style={{ color: '#262626', marginTop: '2px', fontStyle: 'italic' }}>
-                      "{job.customerIssue}"
-                    </div>
-                  </div>
-
-                  {/* Actual Diagnosis snippet */}
-                  {job.actualDiagnosis ? (
-                    <div style={{ background: '#e6f4ff', border: '1px solid #91caff', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px' }}>
-                      <div style={{ fontSize: '11px', color: '#0958d9', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
-                        <span>✓ KẾT QUẢ CHẨN ĐOÁN THỰC TẾ:</span>
-                        <span>{job.actualDiagnosis.diagnosedAt}</span>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', margin: '4px 0' }}>
-                        {job.actualDiagnosis.tags.map((t) => (
-                          <Tag key={t} color="blue" style={{ fontSize: '11px', margin: 0 }}>
-                            {t}
-                          </Tag>
-                        ))}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#262626' }}>
-                        {job.actualDiagnosis.notes}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ border: '1px dashed #d9d9d9', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', textAlign: 'center' }}>
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Chưa ghi nhận chẩn đoán lỗi phần cứng thực tế
+        <Row gutter={[14, 14]}>
+          {filteredJobs.map((job) => (
+            <Col xs={24} md={12} xl={8} key={job.key}>
+              <Card
+                bodyStyle={{ padding: '16px', display: 'flex', flexDirection: 'column', height: '100%', gap: '10px' }}
+                style={{ height: '100%', border: job.priority === 'Khẩn cấp' ? '1px solid #fecaca' : '1px solid #e2e8f0' }}
+              >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Text strong style={{ fontFamily: 'monospace', fontSize: '15px', color: '#2563eb' }}>
+                        {job.code}
                       </Text>
+                      {job.priority === 'Khẩn cấp' && (
+                        <Tag color="error" style={{ margin: 0, fontSize: '10px', padding: '0 4px', fontWeight: 600 }}>
+                          GẤP
+                        </Tag>
+                      )}
                     </div>
-                  )}
-
-                  {/* Steps Progress Mini */}
-                  <div style={{ marginBottom: '14px', marginTop: 'auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '11px', color: '#8c8c8c' }}>Tiến trình sửa chữa:</span>
-                      <Button
-                        type="link"
-                        size="small"
-                        icon={<RightOutlined />}
-                        style={{ padding: 0, fontSize: '12px' }}
-                        onClick={() => handleNextStep(job)}
-                      >
-                        Bước tiếp: {nextStatusMap[job.status] || 'Xong'}
-                      </Button>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: 2 }}>
+                      Nhận: {job.receiveDate} • Hẹn: <span style={{ fontWeight: 600, color: '#0f172a' }}>{job.appointmentDate}</span>
                     </div>
-                    <Steps
-                      size="small"
-                      current={stepCurrent}
-                      items={[
-                        { title: 'Nhận máy' },
-                        { title: 'Kiểm tra' },
-                        { title: 'Sửa chữa' },
-                        { title: 'Hoàn thành' },
-                      ]}
-                    />
                   </div>
 
-                  {/* Touch Action Buttons for Mobile/Tablet */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <Button
-                      type={job.actualDiagnosis ? 'default' : 'primary'}
-                      icon={<ToolOutlined />}
-                      style={{ borderRadius: '6px', height: '36px' }}
-                      onClick={() => onOpenDiagnosis(job)}
-                    >
-                      {job.actualDiagnosis ? 'Sửa chẩn đoán' : 'Ghi chẩn đoán'}
-                    </Button>
+                  <Dropdown
+                    menu={{
+                      items: statusMenuItems(),
+                      onClick: (e) => handleStatusMenuClick(job, e),
+                    }}
+                    trigger={['click']}
+                  >
+                    <div style={{ cursor: 'pointer' }}>
+                      {getStatusBadge(job.status)}
+                    </div>
+                  </Dropdown>
+                </div>
 
-                    <Button
-                      icon={<ShoppingCartOutlined />}
-                      style={{ borderRadius: '6px', height: '36px' }}
-                      onClick={() => onOpenRequisition(job)}
-                    >
-                      Lĩnh vật tư
-                    </Button>
-
-                    <Button
-                      icon={<DollarOutlined />}
-                      style={{ borderRadius: '6px', height: '36px' }}
-                      onClick={() => onOpenProposal(job)}
-                    >
-                      Báo phát sinh
-                    </Button>
-
-                    <Button
-                      type="dashed"
-                      icon={<EyeOutlined />}
-                      style={{ borderRadius: '6px', height: '36px' }}
-                      onClick={() => setDetailModalJob(job)}
-                    >
-                      Xem chi tiết
-                    </Button>
+                {/* Device & Customer */}
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
+                    {job.device}
                   </div>
-                </Card>
-              </Col>
-            );
-          })}
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
+                    <span>{job.customer}</span> • <a href={`tel:${job.phone}`} style={{ color: '#2563eb' }}>{job.phone}</a>
+                  </div>
+                </div>
+
+                {/* Issue summary */}
+                <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', color: '#334155', border: '1px solid #f1f5f9' }}>
+                  {job.customerIssue}
+                </div>
+
+                {/* Diagnosis note if present */}
+                {job.actualDiagnosis && (
+                  <div style={{ background: '#eff6ff', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', border: '1px solid #dbeafe' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                      {job.actualDiagnosis.tags.map((t) => (
+                        <Tag key={t} color="blue" style={{ fontSize: '10px', margin: 0 }}>
+                          {t}
+                        </Tag>
+                      ))}
+                    </div>
+                    <div style={{ color: '#1e3a8a', fontSize: '11px' }}>
+                      {job.actualDiagnosis.notes}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div style={{ marginTop: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, paddingTop: 6 }}>
+                  <Button
+                    type={job.actualDiagnosis ? 'default' : 'primary'}
+                    size="small"
+                    icon={<ToolOutlined />}
+                    onClick={() => onOpenDiagnosis(job)}
+                  >
+                    {job.actualDiagnosis ? 'Sửa' : 'Chẩn đoán'}
+                  </Button>
+
+                  <Button
+                    size="small"
+                    icon={<ShoppingCartOutlined />}
+                    onClick={() => onOpenRequisition(job)}
+                  >
+                    Vật tư
+                  </Button>
+
+                  <Button
+                    size="small"
+                    icon={<DollarOutlined />}
+                    onClick={() => onOpenProposal(job)}
+                  >
+                    Báo giá
+                  </Button>
+                </div>
+              </Card>
+            </Col>
+          ))}
         </Row>
       ) : (
-        <Card bordered={false} style={{ borderRadius: '12px' }}>
+        <Card bodyStyle={{ padding: 0 }}>
           <Table
             columns={columns}
             dataSource={filteredJobs}
@@ -510,15 +384,10 @@ const AssignedJobsTab = ({
         </Card>
       )}
 
-      {/* Modal Chi tiết ca máy */}
+      {/* Detail Modal */}
       {detailModalJob && (
         <Modal
-          title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ToolOutlined style={{ color: '#1677ff' }} />
-              <span>Hồ sơ chi tiết ca máy — {detailModalJob.code}</span>
-            </div>
-          }
+          title={`Hồ sơ thiết bị — ${detailModalJob.code}`}
           open={Boolean(detailModalJob)}
           onCancel={() => setDetailModalJob(null)}
           footer={[
@@ -526,75 +395,45 @@ const AssignedJobsTab = ({
               Đóng
             </Button>,
           ]}
-          width={700}
+          width={640}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-            <Card size="small" style={{ background: '#fafafa' }}>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <div><Text type="secondary">Mã ca máy:</Text> <Text strong>{detailModalJob.code}</Text></div>
-                  <div><Text type="secondary">Khách hàng:</Text> <Text strong>{detailModalJob.customer}</Text></div>
-                  <div><Text type="secondary">Số điện thoại:</Text> <Text strong>{detailModalJob.phone}</Text></div>
-                </Col>
-                <Col span={12}>
-                  <div><Text type="secondary">Thiết bị:</Text> <Text strong>{detailModalJob.device}</Text></div>
-                  <div><Text type="secondary">Serial/IMEI:</Text> <Text code>{detailModalJob.deviceSerial || 'Chưa có'}</Text></div>
-                  <div><Text type="secondary">Kỹ thuật viên:</Text> <Text strong>{detailModalJob.assignedTech}</Text></div>
-                </Col>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+            <div style={{ background: '#f8fafc', padding: 12, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '13px' }}>
+              <Row gutter={[12, 6]}>
+                <Col span={12}><div><Text type="secondary">Khách hàng:</Text> <strong>{detailModalJob.customer}</strong></div></Col>
+                <Col span={12}><div><Text type="secondary">Số điện thoại:</Text> <strong>{detailModalJob.phone}</strong></div></Col>
+                <Col span={12}><div><Text type="secondary">Thiết bị:</Text> <strong>{detailModalJob.device}</strong></div></Col>
+                <Col span={12}><div><Text type="secondary">Serial/IMEI:</Text> <Text code>{detailModalJob.deviceSerial || '—'}</Text></div></Col>
               </Row>
-            </Card>
+            </div>
 
             <div>
-              <Text strong>Khai báo ban đầu của khách hàng:</Text>
-              <div style={{ background: '#fffbe6', padding: '10px', borderRadius: '6px', marginTop: '4px', border: '1px solid #ffe58f' }}>
+              <div style={{ fontWeight: 600, fontSize: '12px', color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                Khai báo lỗi ban đầu
+              </div>
+              <div style={{ background: '#f8fafc', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '13px' }}>
                 {detailModalJob.customerIssue}
               </div>
             </div>
 
-            {detailModalJob.actualDiagnosis ? (
+            {detailModalJob.actualDiagnosis && (
               <div>
-                <Text strong>Kết luận chẩn đoán thực tế của thợ:</Text>
-                <div style={{ background: '#f0f5ff', padding: '10px', borderRadius: '6px', marginTop: '4px', border: '1px solid #adc6ff' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+                <div style={{ fontWeight: 600, fontSize: '12px', color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Kết quả chẩn đoán kỹ thuật
+                </div>
+                <div style={{ background: '#eff6ff', padding: 10, borderRadius: 6, border: '1px solid #bfdbfe', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
                     {detailModalJob.actualDiagnosis.tags.map((t) => (
                       <Tag key={t} color="blue">{t}</Tag>
                     ))}
                   </div>
-                  <div style={{ fontSize: '13px' }}>{detailModalJob.actualDiagnosis.notes}</div>
+                  <div>{detailModalJob.actualDiagnosis.notes}</div>
                   {detailModalJob.actualDiagnosis.measurements && (
-                    <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '6px' }}>
-                      ⚡ Đo đạc: {detailModalJob.actualDiagnosis.measurements}
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: 4 }}>
+                      Đo đạc: {detailModalJob.actualDiagnosis.measurements}
                     </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <Alert type="warning" message="Chưa thực hiện chẩn đoán thực tế cho ca máy này." />
-            )}
-
-            {detailModalJob.spareParts && detailModalJob.spareParts.length > 0 && (
-              <div>
-                <Text strong>Linh kiện đã yêu cầu lĩnh kho:</Text>
-                <ul style={{ paddingLeft: '20px', margin: '6px 0' }}>
-                  {detailModalJob.spareParts.map((p) => (
-                    <li key={p.id}>
-                      {p.name} (Mã: {p.code}) — Số lượng: {p.qty} — <Tag color="green">{p.status}</Tag>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {detailModalJob.proposals && detailModalJob.proposals.length > 0 && (
-              <div>
-                <Text strong>Hạng mục báo giá phát sinh:</Text>
-                <ul style={{ paddingLeft: '20px', margin: '6px 0' }}>
-                  {detailModalJob.proposals.map((p) => (
-                    <li key={p.id}>
-                      {p.title} — Chi phí: {((p.partCost || 0) + (p.laborCost || 0)).toLocaleString('vi-VN')} ₫ — <Tag color="blue">{p.status}</Tag>
-                    </li>
-                  ))}
-                </ul>
               </div>
             )}
           </div>

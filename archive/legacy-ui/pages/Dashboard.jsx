@@ -1,19 +1,17 @@
-import React from 'react';
-import { Card, Row, Col, Typography, Statistic, Tag } from 'antd';
-import { 
-  WalletOutlined, 
-  CalendarOutlined, 
-  InboxOutlined, 
-  WarningOutlined,
+import { Card, Row, Col } from 'antd';
+import {
+  WalletOutlined,
+  CalendarOutlined,
+  InboxOutlined,
+  SafetyCertificateOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined
 } from '@ant-design/icons';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart
 } from 'recharts';
 
-const { Title, Text } = Typography;
 
 const revenueData = [
   { name: 'T1', service: 35, parts: 20 },
@@ -40,113 +38,124 @@ const productivityData = [
 
 const Dashboard = () => {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <Row gutter={[20, 20]}>
-        <Col span={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <Text type="secondary" style={{ fontSize: '13px' }}>Doanh thu hôm nay</Text>
-                <Title level={3} style={{ margin: '8px 0', color: '#1f2937' }}>18.450.000 ₫</Title>
-                <Tag color="success" icon={<ArrowUpOutlined />} style={{ borderRadius: '10px' }}>
-                  12.4%
-                </Tag>
-                <Text type="secondary" style={{ fontSize: '12px' }}>so với hôm qua</Text>
-              </div>
-              <div style={{ padding: '8px', background: '#eff6ff', borderRadius: '8px', color: '#3b82f6' }}>
-                <WalletOutlined style={{ fontSize: '20px' }} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      {/* KPI Stats Row */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={6}>
+          <div className="stat-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="stat-card-label">Doanh thu ngày</span>
+              <div style={{ color: '#64748b', fontSize: '16px' }}>
+                <WalletOutlined />
               </div>
             </div>
-          </Card>
+            <div className="stat-card-value">18.450.000 ₫</div>
+            <div className="stat-card-footer">
+              <span style={{ color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                <ArrowUpOutlined style={{ fontSize: '11px' }} /> 12.4%
+              </span>
+              <span>so với hôm trước</span>
+            </div>
+          </div>
         </Col>
-        <Col span={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <Text type="secondary" style={{ fontSize: '13px' }}>Doanh thu tháng này</Text>
-                <Title level={3} style={{ margin: '8px 0', color: '#1f2937' }}>486.200.000 ₫</Title>
-                <Tag color="success" icon={<ArrowUpOutlined />} style={{ borderRadius: '10px' }}>
-                  8.1%
-                </Tag>
-                <Text type="secondary" style={{ fontSize: '12px' }}>so với tháng trước</Text>
-              </div>
-              <div style={{ padding: '8px', background: '#e0f2fe', borderRadius: '8px', color: '#0ea5e9' }}>
-                <CalendarOutlined style={{ fontSize: '20px' }} />
+
+        <Col xs={24} sm={12} lg={6}>
+          <div className="stat-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="stat-card-label">Doanh thu tháng</span>
+              <div style={{ color: '#64748b', fontSize: '16px' }}>
+                <CalendarOutlined />
               </div>
             </div>
-          </Card>
+            <div className="stat-card-value">486.200.000 ₫</div>
+            <div className="stat-card-footer">
+              <span style={{ color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                <ArrowUpOutlined style={{ fontSize: '11px' }} /> 8.1%
+              </span>
+              <span>so với kỳ trước</span>
+            </div>
+          </div>
         </Col>
-        <Col span={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <Text type="secondary" style={{ fontSize: '13px' }}>Máy đang tồn đọng</Text>
-                <Title level={3} style={{ margin: '8px 0', color: '#1f2937' }}>27 máy</Title>
-                <Tag color="success" icon={<ArrowDownOutlined />} style={{ borderRadius: '10px', color: '#16a34a', background: '#dcfce7', borderColor: '#dcfce7' }}>
-                  -4 máy
-                </Tag>
-                <Text type="secondary" style={{ fontSize: '12px' }}>so với hôm qua</Text>
-              </div>
-              <div style={{ padding: '8px', background: '#fef3c7', borderRadius: '8px', color: '#d97706' }}>
-                <InboxOutlined style={{ fontSize: '20px' }} />
+
+        <Col xs={24} sm={12} lg={6}>
+          <div className="stat-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="stat-card-label">Thiết bị đang xử lý</span>
+              <div style={{ color: '#64748b', fontSize: '16px' }}>
+                <InboxOutlined />
               </div>
             </div>
-          </Card>
+            <div className="stat-card-value">27 máy</div>
+            <div className="stat-card-footer">
+              <span style={{ color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                <ArrowDownOutlined style={{ fontSize: '11px' }} /> -4 máy
+              </span>
+              <span>tồn đọng giảm</span>
+            </div>
+          </div>
         </Col>
-        <Col span={6}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <Text type="secondary" style={{ fontSize: '13px' }}>Tỷ lệ phải bảo hành lại</Text>
-                <Title level={3} style={{ margin: '8px 0', color: '#1f2937' }}>3.8%</Title>
-                <Tag color="success" icon={<ArrowDownOutlined />} style={{ borderRadius: '10px', color: '#16a34a', background: '#dcfce7', borderColor: '#dcfce7' }}>
-                  -0.6%
-                </Tag>
-                <Text type="secondary" style={{ fontSize: '12px' }}>so với tháng trước</Text>
-              </div>
-              <div style={{ padding: '8px', background: '#fee2e2', borderRadius: '8px', color: '#ef4444' }}>
-                <WarningOutlined style={{ fontSize: '20px' }} />
+
+        <Col xs={24} sm={12} lg={6}>
+          <div className="stat-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="stat-card-label">Tỷ lệ bảo hành lại</span>
+              <div style={{ color: '#64748b', fontSize: '16px' }}>
+                <SafetyCertificateOutlined />
               </div>
             </div>
-          </Card>
+            <div className="stat-card-value">3.8%</div>
+            <div className="stat-card-footer">
+              <span style={{ color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                <ArrowDownOutlined style={{ fontSize: '11px' }} /> -0.6%
+              </span>
+              <span>dưới ngưỡng mục tiêu 5%</span>
+            </div>
+          </div>
         </Col>
       </Row>
 
-      <Row gutter={[20, 20]}>
-        <Col span={16}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-            <Title level={5} style={{ marginTop: 0 }}>Doanh thu theo tháng</Title>
-            <Text type="secondary" style={{ display: 'block', marginBottom: '20px' }}>
-              Tách bạch tiền công dịch vụ và doanh thu linh kiện thay thế (đơn vị: triệu đồng)
-            </Text>
-            <div style={{ height: 350 }}>
+      {/* Charts Row */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={16}>
+          <Card
+            title="Biểu đồ doanh thu dịch vụ & linh kiện"
+            extra={<span style={{ fontSize: '12px', color: '#64748b' }}>Đơn vị: Triệu VNĐ</span>}
+          >
+            <div style={{ height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${value}tr`} />
-                  <Tooltip cursor={{fill: 'transparent'}} />
-                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                  <Bar dataKey="service" name="Tiền công dịch vụ" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={15} />
-                  <Bar dataKey="parts" name="Bán / thay linh kiện" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={15} />
+                <BarChart data={revenueData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(val) => `${val}tr`} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '6px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', fontSize: '12px' }}
+                    cursor={{ fill: 'rgba(241, 245, 249, 0.6)' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                  <Bar dataKey="service" name="Công dịch vụ" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={14} />
+                  <Bar dataKey="parts" name="Linh kiện" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={14} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </Card>
         </Col>
-        <Col span={8}>
-          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', height: '100%' }}>
-            <Title level={5} style={{ marginTop: 0 }}>Năng suất kỹ thuật viên</Title>
-            <Text type="secondary" style={{ display: 'block', marginBottom: '20px' }}>
-              Số ca hoàn thành trong tháng
-            </Text>
-            <div style={{ height: 350 }}>
+
+        <Col xs={24} lg={8}>
+          <Card
+            title="Năng suất kỹ thuật viên"
+            extra={<span style={{ fontSize: '12px', color: '#64748b' }}>Tháng này</span>}
+          >
+            <div style={{ height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart layout="vertical" data={productivityData} margin={{ top: 20, right: 30, left: 20, bottom: 0 }}>
+                <ComposedChart layout="vertical" data={productivityData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                   <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{fill: 'transparent'}} />
-                  <Bar dataKey="tasks" fill="#2563eb" radius={[0, 4, 4, 0]} barSize={25} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#334155' }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                    cursor={{ fill: 'rgba(241, 245, 249, 0.6)' }}
+                    formatter={(val) => [`${val} ca`, 'Hoàn thành']}
+                  />
+                  <Bar dataKey="tasks" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={18} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>

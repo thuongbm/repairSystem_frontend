@@ -39,25 +39,25 @@ import {
   RECEPTIONIST_INFO
 } from '../components/Reception/mockReceptionData';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const getStatusTag = (status) => {
   switch (status) {
     case 'Mới tiếp nhận':
-      return <Tag color="default" style={{ borderRadius: '10px', padding: '2px 8px' }}>Mới tiếp nhận</Tag>;
+      return <Tag style={{ borderRadius: '4px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>Mới tiếp nhận</Tag>;
     case 'Đang kiểm tra':
-      return <Tag color="cyan" style={{ borderRadius: '10px', padding: '2px 8px' }}>Đang kiểm tra</Tag>;
+      return <Tag color="cyan" style={{ borderRadius: '4px' }}>Đang kiểm tra</Tag>;
     case 'Đang sửa':
     case 'Đang sửa chữa':
-      return <Tag color="blue" style={{ borderRadius: '10px', padding: '2px 8px' }}>Đang sửa</Tag>;
+      return <Tag color="blue" style={{ borderRadius: '4px' }}>Đang sửa</Tag>;
     case 'Chờ linh kiện':
-      return <Tag color="warning" style={{ borderRadius: '10px', padding: '2px 8px' }}>Chờ linh kiện</Tag>;
+      return <Tag color="warning" style={{ borderRadius: '4px' }}>Chờ linh kiện</Tag>;
     case 'Chờ duyệt phát sinh':
-      return <Tag color="volcano" style={{ borderRadius: '10px', padding: '2px 8px' }}>⚡ Chờ duyệt khách</Tag>;
+      return <Tag color="volcano" style={{ borderRadius: '4px' }}>Chờ duyệt khách</Tag>;
     case 'Hoàn thành':
-      return <Tag color="success" style={{ borderRadius: '10px', padding: '2px 8px' }}>✓ Sẵn sàng trả máy</Tag>;
+      return <Tag color="success" style={{ borderRadius: '4px' }}>Sẵn sàng trả</Tag>;
     case 'Đã trả máy':
-      return <Tag color="purple" style={{ borderRadius: '10px', padding: '2px 8px' }}>Đã bàn giao</Tag>;
+      return <Tag style={{ borderRadius: '4px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }}>Đã bàn giao</Tag>;
     default:
       return <Tag>{status}</Tag>;
   }
@@ -91,7 +91,6 @@ const Reception = () => {
   const handleCreateTicket = (newTicket) => {
     setTickets((prev) => [newTicket, ...prev]);
 
-    // Nếu khách có đặt cọc trước, tự động ghi nhận vào sổ quỹ thu ngân
     if (newTicket.deposit > 0) {
       const newTxn = {
         id: `TXN-${Math.floor(100 + Math.random() * 900)}`,
@@ -134,13 +133,12 @@ const Reception = () => {
       })
     );
 
-    // Ghi nhận vào sổ quỹ
     const newTxn = {
       id: `TXN-${Math.floor(100 + Math.random() * 900)}`,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       ticketCode: paymentRecord.ticketCode,
       customer: paymentRecord.customer,
-      type: 'Thanh toán trả máy hoàn tất',
+      type: 'Thanh toán hoàn tất',
       amount: paymentRecord.amount,
       method: paymentRecord.method,
       cashier: RECEPTIONIST_INFO.name,
@@ -170,15 +168,12 @@ const Reception = () => {
     const targetProp = pendingProposals.find((p) => p.id === proposalId);
     if (!targetProp) return;
 
-    // Log call notes for reception audit
     if (callNotes) {
       message.info(`Ghi chú: ${callNotes.slice(0, 40)}...`);
     }
 
-    // Xóa khỏi danh sách chờ gọi
     setPendingProposals((prev) => prev.filter((p) => p.id !== proposalId));
 
-    // Cập nhật trạng thái phiếu máy
     setTickets((prev) =>
       prev.map((t) => {
         if (t.code === targetProp.ticketCode) {
@@ -195,7 +190,7 @@ const Reception = () => {
           } else {
             return {
               ...t,
-              status: 'Đang sửa', // Tiếp tục sửa các mục ban đầu
+              status: 'Đang sửa',
             };
           }
         }
@@ -231,20 +226,20 @@ const Reception = () => {
       key: 'code',
       render: (text, record) => (
         <div>
-          <Text strong style={{ fontFamily: 'monospace', color: '#1677ff' }}>{text}</Text>
+          <Text strong style={{ fontFamily: 'monospace', color: '#2563eb' }}>{text}</Text>
           {record.priority === 'Khẩn cấp' && (
-            <div><Tag color="red" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>GẤP</Tag></div>
+            <div><Tag color="error" style={{ fontSize: '10px', padding: '0 4px', margin: 0, borderRadius: '2px' }}>Gấp</Tag></div>
           )}
         </div>
       ),
     },
     {
-      title: 'Khách hàng & SĐT',
+      title: 'Khách hàng',
       key: 'customer',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{record.customer}</div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+          <div style={{ fontWeight: 500, color: '#0f172a' }}>{record.customer}</div>
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
             <PhoneOutlined /> {record.phone}
           </div>
         </div>
@@ -255,24 +250,24 @@ const Reception = () => {
       key: 'device',
       render: (_, record) => (
         <div style={{ maxWidth: 280 }}>
-          <div style={{ fontWeight: 600, color: '#1f2937' }}>{record.device}</div>
-          <div style={{ fontSize: '12px', color: '#595959', fontStyle: 'italic' }}>
-            "{record.customerIssue}"
+          <div style={{ fontWeight: 500, color: '#0f172a' }}>{record.device}</div>
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
+            {record.customerIssue}
           </div>
-          <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '2px' }}>
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
             Serial: {record.serial} • Pass: {record.passcode}
           </div>
         </div>
       ),
     },
     {
-      title: 'Tiếp nhận & Hẹn trả',
+      title: 'Tiếp nhận & Hẹn',
       key: 'time',
       render: (_, record) => (
         <div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c' }}>Nhận: {record.receiveDate}</div>
-          <div style={{ fontSize: '12px', fontWeight: 500, color: '#d46b08' }}>
-            <ClockCircleOutlined style={{ marginRight: '4px' }} />
+          <div style={{ fontSize: '12px', color: '#64748b' }}>Nhận: {record.receiveDate}</div>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <ClockCircleOutlined style={{ color: '#94a3b8' }} />
             {record.appointmentDate}
           </div>
         </div>
@@ -283,7 +278,7 @@ const Reception = () => {
       dataIndex: 'technician',
       key: 'technician',
       render: (tech) => (
-        <Tag color={tech === 'Chưa phân công' ? 'default' : 'geekblue'}>
+        <Tag style={{ borderRadius: '4px', background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#334155' }}>
           {tech}
         </Tag>
       ),
@@ -293,11 +288,11 @@ const Reception = () => {
       key: 'cost',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 600, color: '#1f2937' }}>
+          <div style={{ fontWeight: 600, color: '#0f172a' }}>
             {(record.estimatedCost || 0).toLocaleString('vi-VN')} ₫
           </div>
           <div>
-            <Tag color={record.paymentStatus.includes('Đã thanh toán') ? 'success' : record.deposit > 0 ? 'cyan' : 'default'} style={{ fontSize: '11px' }}>
+            <Tag color={record.paymentStatus.includes('Đã thanh toán') ? 'success' : record.deposit > 0 ? 'cyan' : 'default'} style={{ fontSize: '11px', borderRadius: '4px' }}>
               {record.paymentStatus}
             </Tag>
           </div>
@@ -320,7 +315,7 @@ const Reception = () => {
               type="primary"
               size="small"
               icon={<DollarOutlined />}
-              style={{ background: '#52c41a', borderColor: '#52c41a', borderRadius: '4px' }}
+              style={{ borderRadius: '4px' }}
               onClick={() => handleOpenCheckout(record)}
             >
               Thu tiền
@@ -333,6 +328,7 @@ const Reception = () => {
               danger
               size="small"
               icon={<PhoneOutlined />}
+              style={{ borderRadius: '4px' }}
               onClick={() => {
                 const prop = pendingProposals.find((p) => p.ticketCode === record.code);
                 if (prop) handleOpenProposal(prop);
@@ -343,10 +339,11 @@ const Reception = () => {
             </Button>
           )}
 
-          <Tooltip title="Xem chi tiết phiếu sửa chữa">
+          <Tooltip title="Xem chi tiết">
             <Button
               size="small"
               icon={<EyeOutlined />}
+              style={{ borderRadius: '4px' }}
               onClick={() => setDetailModalTicket(record)}
             />
           </Tooltip>
@@ -361,7 +358,7 @@ const Reception = () => {
       title: 'Mã ĐX',
       dataIndex: 'proposalCode',
       key: 'proposalCode',
-      render: (text) => <Text strong style={{ color: '#1677ff', fontFamily: 'monospace' }}>{text}</Text>,
+      render: (text) => <Text strong style={{ color: '#2563eb', fontFamily: 'monospace' }}>{text}</Text>,
     },
     {
       title: 'Phiếu ca máy',
@@ -369,60 +366,58 @@ const Reception = () => {
       render: (_, record) => (
         <div>
           <Tag color="blue">{record.ticketCode}</Tag>
-          <div style={{ fontWeight: 600, marginTop: '2px' }}>{record.device}</div>
+          <div style={{ fontWeight: 500, marginTop: '2px', color: '#0f172a' }}>{record.device}</div>
         </div>
       ),
     },
     {
-      title: 'Khách hàng & Hotline',
+      title: 'Khách hàng',
       key: 'customer',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{record.customer}</div>
-          <a href={`tel:${record.phone}`} style={{ fontSize: '13px', fontWeight: 'bold' }}>
+          <div style={{ fontWeight: 500, color: '#0f172a' }}>{record.customer}</div>
+          <a href={`tel:${record.phone}`} style={{ fontSize: '12px', color: '#2563eb' }}>
             <PhoneOutlined /> {record.phone}
           </a>
         </div>
       ),
     },
     {
-      title: 'Hạng mục lỗi phát sinh từ thợ',
+      title: 'Lỗi phát sinh',
       key: 'detail',
       render: (_, record) => (
         <div style={{ maxWidth: 320 }}>
-          <div style={{ fontWeight: 600, color: '#1f2937' }}>{record.proposalTitle}</div>
-          <div style={{ fontSize: '12px', color: '#595959', fontStyle: 'italic' }}>
-            "{record.technicalReason}"
+          <div style={{ fontWeight: 500, color: '#0f172a' }}>{record.proposalTitle}</div>
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
+            {record.technicalReason}
           </div>
-          <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '2px' }}>
-            KTV phát hiện: {record.technician} • {record.createdAt}
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+            KTV: {record.technician} • {record.createdAt}
           </div>
         </div>
       ),
     },
     {
-      title: 'Chi phí phát sinh',
+      title: 'Chi phí đề xuất',
       dataIndex: 'totalCost',
       key: 'totalCost',
       render: (val) => (
-        <div>
-          <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#cf1322' }}>
-            {val.toLocaleString('vi-VN')} ₫
-          </span>
-        </div>
+        <span style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
+          {val.toLocaleString('vi-VN')} ₫
+        </span>
       ),
     },
     {
-      title: 'Thao tác Lễ tân',
+      title: 'Thao tác',
       key: 'action',
       render: (_, record) => (
         <Button
           type="primary"
-          style={{ background: '#faad14', borderColor: '#faad14' }}
           icon={<PhoneOutlined />}
+          style={{ borderRadius: '4px' }}
           onClick={() => handleOpenProposal(record)}
         >
-          Gọi khách chốt duyệt
+          Liên hệ duyệt
         </Button>
       ),
     },
@@ -430,114 +425,78 @@ const Reception = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Header Banner: Lễ tân & Thu ngân */}
-      <Card
-        bordered={false}
-        style={{
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-          background: '#ffffff',
-        }}
-      >
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
-          <Col xs={24} lg={12}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '10px',
-                  background: '#fff7e6',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  color: '#fa8c16',
-                  fontSize: '24px',
-                }}
-              >
-                <LaptopOutlined />
-              </div>
-              <div>
-                <Title level={4} style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>
-                  Bàn làm việc Lễ tân & Thu ngân (Front Desk & Cashier)
-                </Title>
-                <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span>Trưởng ca: <Text strong style={{ color: '#1f2937' }}>{RECEPTIONIST_INFO.name}</Text></span>
-                  <span>•</span>
-                  <span>{RECEPTIONIST_INFO.counter}</span>
-                  <span>•</span>
-                  <Tag color="orange" style={{ borderRadius: '10px', margin: 0 }}>
-                    Tiếp nhận • Báo giá • Thu ngân
-                  </Tag>
-                </div>
-              </div>
+      {/* Workspace Header Cards */}
+      <Row gutter={[16, 16]}>
+        <Col xs={12} sm={6}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>Tổng đơn tiếp nhận</Text>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+              {totalTickets}
             </div>
-          </Col>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+              {RECEPTIONIST_INFO.counter}
+            </div>
+          </Card>
+        </Col>
 
-          <Col xs={24} lg={12}>
-            <Row gutter={12}>
-              <Col span={6}>
-                <div style={{ textAlign: 'center', borderRight: '1px solid #f0f0f0' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Tổng đơn máy</Text>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1f2937' }}>{totalTickets}</div>
-                </div>
-              </Col>
-              <Col span={6}>
-                <div style={{ textAlign: 'center', borderRight: '1px solid #f0f0f0' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Cần gọi duyệt</Text>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#ff4d4f' }}>
-                    {pendingApprovalCount} ca
-                  </div>
-                </div>
-              </Col>
-              <Col span={6}>
-                <div style={{ textAlign: 'center', borderRight: '1px solid #f0f0f0' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Sẵn sàng trả máy</Text>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>
-                    {readyForCheckoutCount} ca
-                  </div>
-                </div>
-              </Col>
-              <Col span={6}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>Doanh thu ca</Text>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0958d9' }}>
-                    {totalRevenue.toLocaleString('vi-VN')} ₫
-                  </div>
-                </div>
-              </Col>
-            </Row>
-          </Col>
-        </Row>
-      </Card>
+        <Col xs={12} sm={6}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>Chờ duyệt phát sinh</Text>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#f59e0b', marginTop: '2px' }}>
+              {pendingApprovalCount} <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#64748b' }}>ca</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+              Cần liên hệ khách
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={12} sm={6}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>Sẵn sàng trả máy</Text>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#16a34a', marginTop: '2px' }}>
+              {readyForCheckoutCount} <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#64748b' }}>ca</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+              Chờ thanh toán
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={12} sm={6}>
+          <Card bordered={false} style={{ borderRadius: '8px' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>Doanh thu ca hiện tại</Text>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+              {totalRevenue.toLocaleString('vi-VN')} ₫
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+              {cashRegister.transactions.length} giao dịch
+            </div>
+          </Card>
+        </Col>
+      </Row>
 
       {/* Main Tabs */}
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
-        type="card"
         style={{
           background: '#ffffff',
-          borderRadius: '12px',
+          borderRadius: '8px',
           padding: '16px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
         }}
         items={[
           {
             key: 'tickets',
-            label: (
-              <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                <LaptopOutlined /> Quản lý tiếp nhận máy ({tickets.length})
-              </span>
-            ),
+            label: `Tiếp nhận & Sửa chữa (${tickets.length})`,
             children: (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                   <Space wrap>
                     <Input
-                      placeholder="Tìm mã phiếu, khách hàng, số điện thoại, model máy..."
-                      prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-                      style={{ width: 320, borderRadius: '6px' }}
+                      placeholder="Tìm mã phiếu, khách hàng, SĐT, máy..."
+                      prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                      style={{ width: 300, borderRadius: '6px' }}
                       value={searchText}
                       onChange={(e) => setSearchText(e.target.value)}
                       allowClear
@@ -545,15 +504,15 @@ const Reception = () => {
                     <Select
                       value={statusFilter}
                       onChange={setStatusFilter}
-                      style={{ width: 180 }}
+                      style={{ width: 170 }}
                       options={[
                         { value: 'ALL', label: 'Tất cả trạng thái' },
                         { value: 'Mới tiếp nhận', label: 'Mới tiếp nhận' },
                         { value: 'Đang kiểm tra', label: 'Đang kiểm tra' },
                         { value: 'Đang sửa', label: 'Đang sửa chữa' },
                         { value: 'Chờ duyệt phát sinh', label: 'Chờ duyệt khách' },
-                        { value: 'Hoàn thành', label: '✓ Hoàn thành (Chờ trả)' },
-                        { value: 'Đã trả máy', label: 'Đã bàn giao khách' },
+                        { value: 'Hoàn thành', label: 'Sẵn sàng trả' },
+                        { value: 'Đã trả máy', label: 'Đã bàn giao' },
                       ]}
                     />
                   </Space>
@@ -561,11 +520,10 @@ const Reception = () => {
                   <Button
                     type="primary"
                     icon={<PlusOutlined />}
-                    size="large"
-                    style={{ borderRadius: '6px', background: '#1677ff' }}
+                    style={{ borderRadius: '6px' }}
                     onClick={() => setIsIntakeOpen(true)}
                   >
-                    + Tiếp nhận máy mới
+                    Tiếp nhận máy mới
                   </Button>
                 </div>
 
@@ -582,20 +540,13 @@ const Reception = () => {
           {
             key: 'proposals',
             label: (
-              <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                <PhoneOutlined /> Gọi duyệt báo giá phát sinh{' '}
-                <Badge count={pendingProposals.length} style={{ backgroundColor: '#ff4d4f', marginLeft: '4px' }} />
+              <span>
+                Phê duyệt phát sinh{' '}
+                <Badge count={pendingProposals.length} style={{ backgroundColor: '#2563eb', marginLeft: '4px' }} />
               </span>
             ),
             children: (
               <div>
-                <div style={{ marginBottom: '16px' }}>
-                  <Title level={5} style={{ margin: 0 }}>Danh sách lỗi phát sinh từ thợ cần liên hệ khách hàng</Title>
-                  <Text type="secondary" style={{ fontSize: '13px' }}>
-                    Lễ tân gọi điện giải thích lý do kỹ thuật cho khách hàng, xin duyệt chi phí trước khi KTV tiến hành can thiệp phần cứng.
-                  </Text>
-                </div>
-
                 <Table
                   columns={proposalColumns}
                   dataSource={pendingProposals}
@@ -608,20 +559,13 @@ const Reception = () => {
           {
             key: 'cashier',
             label: (
-              <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                <DollarOutlined /> Thu ngân & Trả máy{' '}
-                <Badge count={readyForCheckoutCount} style={{ backgroundColor: '#52c41a', marginLeft: '4px' }} />
+              <span>
+                Thu ngân & Trả máy{' '}
+                <Badge count={readyForCheckoutCount} style={{ backgroundColor: '#16a34a', marginLeft: '4px' }} />
               </span>
             ),
             children: (
               <div>
-                <div style={{ marginBottom: '16px' }}>
-                  <Title level={5} style={{ margin: 0 }}>Danh sách máy đã sửa xong — Chờ khách đến nhận & Thanh toán</Title>
-                  <Text type="secondary" style={{ fontSize: '13px' }}>
-                    Thu ngân kiểm tra chi phí, thu tiền (Tiền mặt / VietQR / Quẹt thẻ POS), xuất hóa đơn và kích hoạt tem bảo hành.
-                  </Text>
-                </div>
-
                 <Table
                   columns={ticketColumns.filter((col) => col.key !== 'technician')}
                   dataSource={tickets.filter((t) => t.status === 'Hoàn thành' || t.status === 'Đã trả máy')}
@@ -634,8 +578,8 @@ const Reception = () => {
           {
             key: 'shift',
             label: (
-              <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                <WalletOutlined /> Sổ quỹ ca làm việc
+              <span>
+                <WalletOutlined /> Sổ quỹ ca
               </span>
             ),
             children: <ShiftSummaryTab cashRegister={cashRegister} />,
@@ -671,8 +615,8 @@ const Reception = () => {
         <Modal
           title={
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <LaptopOutlined style={{ color: '#1677ff' }} />
-              <span>Chi tiết phiếu tiếp nhận — {detailModalTicket.code}</span>
+              <LaptopOutlined style={{ color: '#2563eb' }} />
+              <span>Phiếu tiếp nhận — {detailModalTicket.code}</span>
             </div>
           }
           open={Boolean(detailModalTicket)}
@@ -682,16 +626,16 @@ const Reception = () => {
               Đóng
             </Button>,
           ]}
-          width={650}
+          width={600}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', fontSize: '13px' }}>
             <div><strong>Khách hàng:</strong> {detailModalTicket.customer} ({detailModalTicket.phone})</div>
             <div><strong>Thiết bị:</strong> {detailModalTicket.device} (Serial: {detailModalTicket.serial})</div>
             <div><strong>Mật khẩu mở máy:</strong> {detailModalTicket.passcode}</div>
-            <div><strong>Phụ kiện kèm theo:</strong> {detailModalTicket.accessories?.join(', ') || 'Không có'}</div>
-            <div><strong>Tình trạng lúc nhận:</strong> {detailModalTicket.condition}</div>
+            <div><strong>Phụ kiện kèm:</strong> {detailModalTicket.accessories?.join(', ') || 'Không có'}</div>
+            <div><strong>Tình trạng ngoại quan:</strong> {detailModalTicket.condition}</div>
             <div><strong>Khai báo lỗi:</strong> {detailModalTicket.customerIssue}</div>
-            <div><strong>Kỹ thuật viên phụ trách:</strong> <Tag color="blue">{detailModalTicket.technician}</Tag></div>
+            <div><strong>KTV phụ trách:</strong> <Tag color="blue">{detailModalTicket.technician}</Tag></div>
             <div><strong>Trạng thái:</strong> {getStatusTag(detailModalTicket.status)}</div>
             <div><strong>Chi phí ước tính:</strong> {(detailModalTicket.estimatedCost || 0).toLocaleString('vi-VN')} ₫</div>
             <div><strong>Tiền cọc:</strong> {(detailModalTicket.deposit || 0).toLocaleString('vi-VN')} ₫</div>

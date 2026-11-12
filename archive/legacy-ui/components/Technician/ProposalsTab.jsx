@@ -1,20 +1,19 @@
 import { useState } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Tag, 
-  Space, 
-  Typography, 
-  Input, 
-  Select, 
-  Alert
+import {
+  Card,
+  Table,
+  Button,
+  Tag,
+  Space,
+  Typography,
+  Input,
+  Select
 } from 'antd';
-import { 
-  PlusOutlined, 
-  CheckCircleOutlined, 
-  CloseCircleOutlined, 
-  ClockCircleOutlined, 
+import {
+  PlusOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
   SearchOutlined
 } from '@ant-design/icons';
 
@@ -42,20 +41,20 @@ const ProposalsTab = ({ proposals, onOpenCreateProposal }) => {
       case 'Khách đã duyệt':
         return (
           <Tag color="success" icon={<CheckCircleOutlined />}>
-            Khách đã duyệt đồng ý
+            Đã duyệt
           </Tag>
         );
       case 'Khách từ chối':
         return (
           <Tag color="error" icon={<CloseCircleOutlined />}>
-            Khách từ chối
+            Từ chối
           </Tag>
         );
       case 'Chờ duyệt khách':
       default:
         return (
           <Tag color="warning" icon={<ClockCircleOutlined />}>
-            Chờ lễ tân liên hệ khách duyệt
+            Chờ duyệt
           </Tag>
         );
     }
@@ -66,18 +65,18 @@ const ProposalsTab = ({ proposals, onOpenCreateProposal }) => {
       title: 'Mã đề xuất',
       dataIndex: 'proposalCode',
       key: 'proposalCode',
-      render: (text) => <Text strong style={{ fontFamily: 'monospace', color: '#1677ff' }}>{text}</Text>,
+      render: (text) => <Text strong style={{ fontFamily: 'monospace', color: '#2563eb' }}>{text}</Text>,
     },
     {
-      title: 'Mã phiếu sửa chữa',
+      title: 'Phiếu sửa chữa',
       key: 'job',
       render: (_, record) => (
         <div>
-          <Tag color="blue" style={{ fontWeight: 'bold' }}>{record.repairJobCode}</Tag>
-          <div style={{ fontSize: '12px', color: '#1f2937', marginTop: '2px', fontWeight: 500 }}>
+          <Tag color="blue" style={{ fontWeight: 600 }}>{record.repairJobCode}</Tag>
+          <div style={{ fontSize: '12px', color: '#0f172a', marginTop: '2px', fontWeight: 500 }}>
             {record.device}
           </div>
-          <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>
             {record.customer}
           </div>
         </div>
@@ -88,12 +87,12 @@ const ProposalsTab = ({ proposals, onOpenCreateProposal }) => {
       key: 'titleReason',
       render: (_, record) => (
         <div style={{ maxWidth: 350 }}>
-          <div style={{ fontWeight: 600, color: '#1f2937' }}>{record.title}</div>
-          <div style={{ fontSize: '12px', color: '#595959', marginTop: '4px', fontStyle: 'italic' }}>
-            "{record.reason}"
+          <div style={{ fontWeight: 500, color: '#0f172a' }}>{record.title}</div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+            {record.reason}
           </div>
-          <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '4px' }}>
-            Thời gian tạo: {record.updatedAt} • Phụ trách: {record.handler}
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+            Tạo lúc: {record.updatedAt} • Phụ trách: {record.handler}
           </div>
         </div>
       ),
@@ -103,20 +102,20 @@ const ProposalsTab = ({ proposals, onOpenCreateProposal }) => {
       key: 'cost',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#cf1322' }}>
+          <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a' }}>
             {record.totalCost.toLocaleString('vi-VN')} ₫
           </div>
-          <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>
             Linh kiện: {record.partCost.toLocaleString('vi-VN')} ₫
           </div>
-          <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>
             Công thợ: {record.laborCost.toLocaleString('vi-VN')} ₫
           </div>
         </div>
       ),
     },
     {
-      title: 'Trạng thái phê duyệt',
+      title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
       render: (status) => getProposalStatusTag(status),
@@ -124,20 +123,12 @@ const ProposalsTab = ({ proposals, onOpenCreateProposal }) => {
   ];
 
   return (
-    <Card bordered={false} style={{ borderRadius: '12px' }}>
-      <Alert
-        type="info"
-        showIcon
-        message="Minh bạch chi phí sửa chữa đối với khách hàng"
-        description="Mọi hạng mục phát sinh ngoài dự kiến ban đầu khi KTV can thiệp bo mạch đều được ghi nhận tại đây. Hệ thống tự động đẩy thông báo cho Lễ tân gọi giải thích chuyên môn cho khách, đảm bảo khách đồng ý bằng văn bản/ghi âm trước khi thợ tiến hành thay thế."
-        style={{ marginBottom: '20px' }}
-      />
-
+    <Card bordered={false} style={{ borderRadius: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <Space wrap>
           <Input
             placeholder="Tìm theo mã đề xuất, mã phiếu, máy..."
-            prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             allowClear
@@ -146,12 +137,12 @@ const ProposalsTab = ({ proposals, onOpenCreateProposal }) => {
           <Select
             value={statusFilter}
             onChange={setStatusFilter}
-            style={{ width: 220 }}
+            style={{ width: 180 }}
             options={[
-              { value: 'ALL', label: 'Tất cả trạng thái duyệt' },
-              { value: 'Chờ duyệt khách', label: '🟡 Chờ duyệt khách' },
-              { value: 'Khách đã duyệt', label: '🟢 Khách đã duyệt' },
-              { value: 'Khách từ chối', label: '🔴 Khách từ chối' },
+              { value: 'ALL', label: 'Tất cả trạng thái' },
+              { value: 'Chờ duyệt khách', label: 'Chờ duyệt khách' },
+              { value: 'Khách đã duyệt', label: 'Khách đã duyệt' },
+              { value: 'Khách từ chối', label: 'Khách từ chối' },
             ]}
           />
         </Space>
@@ -159,10 +150,10 @@ const ProposalsTab = ({ proposals, onOpenCreateProposal }) => {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          style={{ borderRadius: '6px', background: '#faad14', borderColor: '#faad14' }}
+          style={{ borderRadius: '6px' }}
           onClick={onOpenCreateProposal}
         >
-          Tạo đề xuất phát sinh mới
+          Tạo đề xuất mới
         </Button>
       </div>
 

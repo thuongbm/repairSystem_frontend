@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   Form,
@@ -34,19 +34,19 @@ import IntakeConfirmationPanel from './IntakeConfirmationPanel';
 const COMMON_ISSUES = [
   'Mất nguồn / Không bật lên',
   'Quạt hú to / Nóng tự sập',
-  'Màn hình sọc rác / Không hiển thị',
-  'Liệt bàn phím / Kẹt nút',
-  'Không nhận sạc / Chân sạc lỏng',
-  'Rơi nước / Đổ cà phê ẩm mạch',
-  'Chạy chậm / Nhiễm virus nặng',
-  'Nâng cấp RAM / Thay SSD tốc độ cao',
+  'Màn hình sọc / Không hiển thị',
+  'Liệt phím / Kẹt nút',
+  'Không nhận sạc / Chân lỏng',
+  'Ẩm nước / Đổ chất lỏng',
+  'Chạy chậm / Nhiễm mã độc',
+  'Nâng cấp RAM / SSD',
 ];
 
 const ACCESSORY_OPTIONS = [
   'Củ sạc / Dây nguồn',
-  'Túi chống sốc / Cặp xách',
-  'Chuột rời / USB receiver',
-  'Cáp kết nối HDMI / Type-C',
+  'Túi chống sốc',
+  'Chuột rời / USB Receiver',
+  'Cáp kết nối',
 ];
 
 const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
@@ -270,21 +270,30 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
   return (
     <Modal
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <LaptopOutlined style={{ color: '#1677ff', fontSize: '20px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            background: '#eff6ff',
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px'
+          }}>
+            <LaptopOutlined />
+          </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: '16px' }}>
-              Phiếu tiếp nhận thiết bị sửa chữa mới
-            </div>
-            <div style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 'normal' }}>
-              Quy trình tiếp nhận máy minh bạch — Ghi nhận ngoại quan & Phân công kỹ thuật viên
+            <div style={{ fontWeight: 600, fontSize: '15px', color: '#0f172a' }}>
+              Tiếp nhận thiết bị mới
             </div>
           </div>
         </div>
       }
       open={visible}
       onCancel={handleCloseAll}
-      width={860}
+      width={800}
       style={{ top: 20 }}
       footer={
         previewTicket
@@ -297,10 +306,9 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
                 type="primary"
                 loading={submitting}
                 icon={<PrinterOutlined />}
-                style={{ background: '#52c41a', borderColor: '#52c41a' }}
                 onClick={handlePrintReceipt}
               >
-                In biên nhận bàn giao khách (A5)
+                In phiếu tiếp nhận
               </Button>,
             ]
           : [
@@ -314,7 +322,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
                 icon={<CheckCircleOutlined />}
                 onClick={() => form.submit()}
               >
-                Tạo phiếu tiếp nhận & Phân công
+                Tạo phiếu tiếp nhận
               </Button>,
             ]
       }
@@ -324,23 +332,25 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           id="intake-print-receipt"
           size="small"
           style={{
-            border: '2px dashed #1677ff',
-            background: '#fafafa',
+            border: '1px solid #e2e8f0',
+            background: '#f8fafc',
             borderRadius: '8px',
-            padding: '12px',
+            padding: '16px',
           }}
         >
-          <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-            <h3 style={{ margin: 0, color: '#1677ff' }}>BIÊN NHẬN TIẾP NHẬN THIẾT BỊ</h3>
-            <h4 style={{ margin: '8px 0 2px 0', textTransform: 'uppercase' }}>
-              BIÊN NHẬN THIẾT BỊ BẢO TRÌ & SỬA CHỮA
-            </h4>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#cf1322' }}>
-              MÃ PHIẾU: {previewTicket.code}
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em' }}>
+              TECHFIX · BẢO TRÌ & SỬA CHỮA
+            </div>
+            <h3 style={{ margin: '8px 0', color: '#0f172a', fontSize: '17px' }}>
+              BIÊN NHẬN TIẾP NHẬN THIẾT BỊ
+            </h3>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#2563eb' }}>
+              Mã phiếu: {previewTicket.code}
             </div>
           </div>
 
-          <Row gutter={[16, 8]}>
+          <Row gutter={[16, 8]} style={{ fontSize: '13px' }}>
             <Col span={12}>
               <div><strong>Khách hàng:</strong> {previewTicket.customer} ({previewTicket.phone})</div>
               <div><strong>Thiết bị:</strong> {previewTicket.device} (Loại: {previewTicket.deviceType})</div>
@@ -348,14 +358,14 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               {previewTicket.noSerialReason && <div><strong>Không có serial:</strong> {previewTicket.noSerialReason}</div>}
             </Col>
             <Col span={12}>
-              <div><strong>Thời gian tiếp nhận:</strong> {previewTicket.receiveDate}</div>
-              <div><strong>Hẹn trả máy:</strong> <Tag color="red">{previewTicket.appointmentDate}</Tag></div>
-              <div><strong>Kỹ thuật viên phụ trách:</strong> <Tag color="blue">{previewTicket.technician}</Tag></div>
-              <div><strong>Tiền đặt cọc:</strong> <span style={{ color: '#52c41a', fontWeight: 'bold' }}>{previewTicket.deposit.toLocaleString('vi-VN')} ₫</span></div>
+              <div><strong>Thời gian nhận:</strong> {previewTicket.receiveDate}</div>
+              <div><strong>Hẹn trả:</strong> {previewTicket.appointmentDate}</div>
+              <div><strong>Kỹ thuật viên:</strong> {previewTicket.technician}</div>
+              <div><strong>Đặt cọc:</strong> {previewTicket.deposit.toLocaleString('vi-VN')} ₫</div>
             </Col>
           </Row>
 
-          <Divider style={{ margin: '8px 0' }} />
+          <Divider style={{ margin: '12px 0' }} />
 
           <div>
             <strong>Phụ kiện kèm theo:</strong>{' '}
@@ -413,27 +423,24 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             rules={[{ required: true, message: 'Chọn lễ tân để tiếp nhận.' }]}>
             <Select options={receptionists.map((x) => ({ value: x.id, label: x.hoTen }))} />
           </Form.Item>}
-          {/* Thông tin khách hàng */}
-          <Divider orientation="left" style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#1677ff' }}>
-            1. THÔNG TIN KHÁCH HÀNG
-          </Divider>
+          <div className="intake-section-heading">1. Thông tin khách hàng</div>
           <Row gutter={16}>
             <Col xs={24} md={8}>
               <Form.Item
                 name="customerName"
-                label={<span style={{ fontWeight: 600 }}>Họ và tên khách hàng</span>}
-                rules={[{ required: true, message: 'Vui lòng nhập tên khách!' }]}
+                label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Họ và tên</span>}
+                rules={[{ required: true, message: 'Nhập tên khách hàng' }]}
               >
-                <Input prefix={<UserOutlined />} placeholder="VD: Nguyễn Văn Nam" />
+                <Input prefix={<UserOutlined />} placeholder="Nguyễn Văn Nam" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
               <Form.Item
                 name="phone"
-                label={<span style={{ fontWeight: 600 }}>Số điện thoại liên hệ</span>}
-                rules={[{ required: true, message: 'Vui lòng nhập SĐT!' }]}
+                label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Số điện thoại</span>}
+                rules={[{ required: true, message: 'Nhập số điện thoại' }]}
               >
-                <Input prefix={<PhoneOutlined />} placeholder="VD: 0912 345 678" />
+                <Input prefix={<PhoneOutlined />} placeholder="0912 345 678" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
@@ -443,20 +450,17 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             </Col>
           </Row>
 
-          {/* Thông tin thiết bị */}
-          <Divider orientation="left" style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#1677ff' }}>
-            2. THÔNG TIN THIẾT BỊ & PHỤ KIỆN
-          </Divider>
+          <div className="intake-section-heading">2. Thông tin thiết bị</div>
           <Row gutter={16}>
             <Col xs={24} md={6}>
-              <Form.Item name="deviceType" label={<span style={{ fontWeight: 600 }}>Loại thiết bị</span>} rules={[{ required: true }]}>
+              <Form.Item name="deviceType" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Loại máy</span>} rules={[{ required: true }]}>
                 <Select
                   options={[
-                    { value: 'Laptop', label: '💻 Laptop Windows' },
-                    { value: 'MacBook', label: '🍏 MacBook' },
-                    { value: 'PC', label: '🖥️ PC Gaming / Văn phòng' },
-                    { value: 'Máy in', label: '🖨️ Máy in / Thiết bị VP' },
-                    { value: 'Điện thoại/iPad', label: '📱 Tablet / iPad' },
+                    { value: 'Laptop', label: 'Laptop Windows' },
+                    { value: 'MacBook', label: 'MacBook / macOS' },
+                    { value: 'PC', label: 'PC Workstation / Desktop' },
+                    { value: 'Máy in', label: 'Máy in / Ngoại vi' },
+                    { value: 'Điện thoại/iPad', label: 'Tablet / iPad' },
                   ]}
                 />
               </Form.Item>
@@ -464,15 +468,15 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             <Col xs={24} md={10}>
               <Form.Item
                 name="deviceName"
-                label={<span style={{ fontWeight: 600 }}>Model thiết bị chính xác</span>}
-                rules={[{ required: true, message: 'Nhập model máy!' }]}
+                label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Model thiết bị</span>}
+                rules={[{ required: true, message: 'Nhập model máy' }]}
               >
-                <Input placeholder="VD: Dell Inspiron 5510 hoặc MacBook Pro 14 M1" />
+                <Input placeholder="Dell Inspiron 5510 / MacBook Pro M1" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="serial" label={<span style={{ fontWeight: 600 }}>Số Serial / Service Tag</span>}>
-                <Input placeholder="VD: DELL-7821-VN hoặc C02GK91..." />
+              <Form.Item name="serial" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Serial / Service Tag</span>}>
+                <Input placeholder="DELL-7821-VN" />
               </Form.Item>
             </Col>
           </Row>
@@ -496,8 +500,8 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
 
           <Row gutter={16}>
             <Col xs={24} md={8}>
-              <Form.Item name="passcode" label={<span style={{ fontWeight: 600 }}>Mật khẩu mở máy (Để KTV test QC)</span>}>
-                <Input placeholder="VD: 123456 hoặc Không có" />
+              <Form.Item name="passcode" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Mật khẩu máy</span>}>
+                <Input placeholder="123456 hoặc Không có" />
               </Form.Item>
             </Col>
             <Col xs={24} md={16}>
@@ -508,7 +512,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             </Col>
           </Row>
 
-          <Form.Item name="accessories" label={<span style={{ fontWeight: 600 }}>Phụ kiện gửi kèm theo máy:</span>}>
+          <Form.Item name="accessories" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Phụ kiện kèm theo</span>}>
             <Checkbox.Group options={ACCESSORY_OPTIONS} />
           </Form.Item>
 
@@ -521,10 +525,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             </Form.Item>
           </Col>)}</Row>
 
-          {/* Mô tả lỗi ban đầu */}
-          <Divider orientation="left" style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#1677ff' }}>
-            3. KHAI BÁO TÌNH TRẠNG LỖI BAN ĐẦU CỦA KHÁCH
-          </Divider>
+          <div className="intake-section-heading">3. Tình trạng lỗi</div>
           <div style={{ marginBottom: '10px' }}>
             <span style={{ fontSize: '12px', color: '#8c8c8c' }}>Chọn nhanh hiện tượng phổ biến:</span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
@@ -549,17 +550,14 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
             </div>
           </div>
 
-          <Form.Item name="issueNotes" label={<span style={{ fontWeight: 600 }}>Ghi chú lỗi chi tiết của khách hàng:</span>}>
-            <Input.TextArea rows={2} placeholder="Mô tả hoàn cảnh xuất hiện lỗi: sau khi cắm máy chiếu, quạt rít, tắt đột ngột lúc chơi game..." />
+          <Form.Item name="issueNotes" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Ghi chú lỗi chi tiết</span>}>
+            <Input.TextArea rows={2} placeholder="Mô tả hoàn cảnh xuất hiện lỗi..." />
           </Form.Item>
 
-          {/* Phân công & Lịch hẹn */}
-          <Divider orientation="left" style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#1677ff' }}>
-            4. PHÂN CÔNG KỸ THUẬT & HẸN TRẢ MÁY
-          </Divider>
+          <div className="intake-section-heading">4. Phân công & lịch hẹn</div>
           <Row gutter={16}>
             <Col xs={24} md={8}>
-              <Form.Item name="technician" label={<span style={{ fontWeight: 600 }}>Kỹ thuật viên phụ trách:</span>}>
+              <Form.Item name="technician" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Kỹ thuật viên phụ trách</span>}>
                 <Select
                   placeholder="Chọn KTV (để trống = phân công sau)"
                   allowClear
@@ -583,12 +581,10 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="priority" label={<span style={{ fontWeight: 600 }}>Mức độ ưu tiên:</span>}>
+              <Form.Item name="priority" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Độ ưu tiên</span>}>
                 <Radio.Group buttonStyle="solid">
                   <Radio.Button value="Bình thường">Bình thường</Radio.Button>
-                  <Radio.Button value="Khẩn cấp" style={{ color: '#ff4d4f' }}>
-                    ⚡ Khẩn cấp
-                  </Radio.Button>
+                  <Radio.Button value="Khẩn cấp">Khẩn cấp</Radio.Button>
                 </Radio.Group>
               </Form.Item>
             </Col>
@@ -596,7 +592,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
 
           <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item name="estimatedCost" label={<span style={{ fontWeight: 600 }}>Dự toán chi phí sơ bộ (₫):</span>}>
+              <Form.Item name="estimatedCost" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Dự toán sơ bộ (₫)</span>}>
                 <InputNumber
                   style={{ width: '100%' }}
                   formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
@@ -607,7 +603,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item name="deposit" label={<span style={{ fontWeight: 600 }}>Tiền khách cọc trước (₫):</span>}>
+              <Form.Item name="deposit" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Tiền cọc trước (₫)</span>}>
                 <InputNumber
                   style={{ width: '100%' }}
                   formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
