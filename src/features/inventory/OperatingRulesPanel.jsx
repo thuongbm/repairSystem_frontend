@@ -7,14 +7,22 @@ const errorText = (e) => e.response?.data?.message || e.message || 'Không lưu 
 export default function OperatingRulesPanel() {
   const [form] = Form.useForm();
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const load = useCallback(async () => {
-    try { form.setFieldsValue((await api.getQuyTacVanHanh()).data || {}); }
-    catch (e) { message.error(errorText(e)); }
+    setLoading(true);
+    try {
+      form.setFieldsValue((await api.getQuyTacVanHanh()).data || {});
+      setLoadError('');
+    }
+    catch (e) { setLoadError(`Không tải được quy tắc vận hành: ${errorText(e)}`); }
+    finally { setLoading(false); }
   }, [form]);
 
   useEffect(() => { Promise.resolve().then(load); }, [load]);
 
   const save = async (values) => {
+    if (loadError) return;
     setBusy(true);
     try {
       const payload = { ...values,
@@ -31,6 +39,8 @@ export default function OperatingRulesPanel() {
     <Alert type="info" showIcon style={{ marginBottom: 16 }}
       message="Ngưỡng ảnh và bảo hành được hệ thống kiểm tra khi ghi nhận."
       description="Các trường kinh doanh, thuế và hóa đơn điện tử là thông tin cấu hình; hệ thống chưa tự tính thuế hoặc phát hành hóa đơn điện tử từ các trường này." />
+    {loadError && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError}
+      action={<Button size="small" onClick={load}>Thử lại</Button>} />}
     <Form form={form} layout="vertical" onFinish={save}>
       <Row gutter={16}>
         <Col xs={24} md={12}><Form.Item name="baoHanhLapDuyetTuLan"
@@ -55,7 +65,7 @@ export default function OperatingRulesPanel() {
         <Col xs={24} md={8}><Form.Item name="donViHoaDonDienTu" label="Đơn vị hóa đơn điện tử">
           <Input maxLength={150} /></Form.Item></Col>
       </Row>
-      <Button type="primary" htmlType="submit" loading={busy}>Lưu quy tắc</Button>
+      <Button type="primary" htmlType="submit" loading={busy || loading} disabled={!!loadError}>Lưu quy tắc</Button>
     </Form>
   </Card>;
 }

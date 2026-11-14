@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber, Modal,
-  Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+  Popconfirm, Select, Space, Spin, Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import IntakeModal from './IntakeModal';
 import IntakeConfirmationPanel from './IntakeConfirmationPanel';
@@ -10,6 +10,8 @@ import WorkItemsPanel from '../repair/WorkItemsPanel';
 import { useAuth } from '../../context/useAuth';
 import { useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
+import StatusTag from '../../components/StatusTag';
+import { statusLabel } from '../../utils/status';
 
 const { Title, Text } = Typography;
 const money = (n) => `${Number(n || 0).toLocaleString('vi-VN')} ₫`;
@@ -27,6 +29,7 @@ export default function ReceptionPage() {
   const { user } = useAuth();
   const location = useLocation();
   const openedRoute = useRef('');
+  const detailRequestId = useRef(0);
   const [tickets, setTickets] = useState([]);
   const [services, setServices] = useState([]);
   const [parts, setParts] = useState([]);
@@ -43,6 +46,12 @@ export default function ReceptionPage() {
   const [selected, setSelected] = useState(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ticketLoadError, setTicketLoadError] = useState('');
+  const [appointmentLoadError, setAppointmentLoadError] = useState('');
+  const [catalogLoadError, setCatalogLoadError] = useState('');
+  const [detailLoadError, setDetailLoadError] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailReadyId, setDetailReadyId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [quotes, setQuotes] = useState([]);
@@ -61,8 +70,11 @@ export default function ReceptionPage() {
   const [quoteLines, setQuoteLines] = useState([]);
   const [quoteLineForm] = Form.useForm();
   const [quoteForm] = Form.useForm();
+  const [quoteResponseForm] = Form.useForm();
+  const [quoteResponse, setQuoteResponse] = useState(null);
   const [invoiceForm] = Form.useForm();
   const [paymentForm] = Form.useForm();
+  const paymentMethod = Form.useWatch('phuongThuc', paymentForm);
   const [handoverForm] = Form.useForm();
   const [commitmentForm] = Form.useForm();
   const [claimForm] = Form.useForm();
@@ -76,17 +88,24 @@ export default function ReceptionPage() {
       const list = (await api.getPhieuSuaChua()).data || [];
       setTickets(list);
       setSelected((current) => current ? list.find((x) => x.id === current.id) || current : null);
+      setTicketLoadError('');
     }
-    catch (e) { message.error(errorText(e)); }
+    catch (e) { setTicketLoadError(`Không cập nhật được phiếu sửa chữa: ${errorText(e)}`); }
     finally { setLoading(false); }
   }, []);
 
   const loadAppointments = useCallback(async (notifyOnError = true) => {
-    try { setAppointments((await api.getLichHen()).data || []); }
-    catch (e) { if (notifyOnError) message.error(errorText(e)); }
+    try {
+      setAppointments((await api.getLichHen()).data || []);
+      setAppointmentLoadError('');
+    }
+    catch (e) { if (notifyOnError) setAppointmentLoadError(`Không cập nhật được lịch hẹn: ${errorText(e)}`); }
   }, []);
 
   const loadDetail = useCallback(async (id) => {
+    const request = ++detailRequestId.current;
+    setDetailLoading(true);
+    setDetailLoadError('');
     try {
       const [q, s, x, f, c, w, intake] = await Promise.all([
         api.getBaoGiaV3(id), api.getDichVuPhieuV3(id), api.getXuatKhoPhieu(id),
@@ -97,24 +116,34 @@ export default function ReceptionPage() {
           throw e;
         }),
       ]);
+      if (request !== detailRequestId.current) return;
       setQuotes(q.data || []); setServiceLines(s.data || []); setExports(x.data || []);
       setFinance(f.data); setCommitments(c.data || []); setClaims(w.data || []);
       setIntakeConfirmation(intake.data || null);
-    } catch (e) { message.error(errorText(e)); }
+      setDetailReadyId(id);
+    } catch (e) {
+      if (request !== detailRequestId.current) return;
+      setDetailReadyId(null);
+      setDetailLoadError(`Không tải đủ thông tin phiếu: ${errorText(e)}`);
+    } finally { if (request === detailRequestId.current) setDetailLoading(false); }
   }, []);
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.getPhieuSuaChua(), api.getDichVu(), api.getLinhKien(),
-      user?.role === 'admin' ? api.getNhanVien({ chucVu: 'LE_TAN' }) : Promise.resolve({ data: [] })])
-      .then(([t, s, p, r]) => {
+    Promise.allSettled([api.getPhieuSuaChua(), api.getDichVu(), api.getLinhKien(),
+      user?.role === 'admin' ? api.getNhanVien({ chucVu: 'LE_TAN' }) : Promise.resolve({ data: [] }),
+      api.getKyThuatVienPhanCong()])
+      .then(([t, s, p, r, k]) => {
         if (!active) return;
-        setTickets(t.data || []); setServices(s.data || []);
-        setParts(p.data || []); setReceptionists(r.data || []);
-      })
-      .catch((e) => message.error(errorText(e)));
-    api.getKyThuatVienPhanCong().then((r) => { if (active) setTechnicians(r.data || []); })
-      .catch((e) => message.error(errorText(e)));
+        if (t.status === 'fulfilled') { setTickets(t.value.data || []); setTicketLoadError(''); }
+        else setTicketLoadError(`Không tải được phiếu sửa chữa: ${errorText(t.reason)}`);
+        if (s.status === 'fulfilled') setServices(s.value.data || []);
+        if (p.status === 'fulfilled') setParts(p.value.data || []);
+        if (r.status === 'fulfilled') setReceptionists(r.value.data || []);
+        if (k.status === 'fulfilled') setTechnicians(k.value.data || []);
+        setCatalogLoadError([s, p, r, k].some((result) => result.status === 'rejected')
+          ? 'Một phần danh mục nghiệp vụ chưa tải được. Hãy tải lại trang trước khi lập báo giá hoặc phân công.' : '');
+      });
     return () => { active = false; };
   }, [user?.role]);
 
@@ -244,18 +273,16 @@ export default function ReceptionPage() {
       </Form>
     </Card>
     {quotes.map((q) => <Card key={q.id} size="small"
-      title={`Báo giá #${q.phienBan} — ${q.trangThai} — ${money(q.tongSauGiam)}`}
+      title={`Báo giá #${q.phienBan} — ${statusLabel(q.trangThai)} — ${money(q.tongSauGiam)}`}
       extra={<Space>
         {q.trangThai === 'NHAP' && <Popconfirm title="Gửi báo giá cho khách?"
           onConfirm={() => perform(() => api.guiBaoGiaV3(selected.id, q.id), 'Đã chuyển sang chờ khách phản hồi.')}>
           <Button size="small">Đã gửi khách</Button></Popconfirm>}
         {q.trangThai === 'CHO_DUYET' && <>
-          <Button size="small" type="primary" onClick={() => perform(() =>
-            api.phanHoiBaoGiaV3(selected.id, q.id, { quyetDinh: 'DA_DUYET',
-              kenhPhanHoi: 'TRUC_TIEP', noiDungPhanHoi: 'Khách xác nhận tại cửa hàng' }), 'Đã ghi nhận khách đồng ý.')}>Khách đồng ý</Button>
-          <Button size="small" danger onClick={() => perform(() =>
-            api.phanHoiBaoGiaV3(selected.id, q.id, { quyetDinh: 'TU_CHOI',
-              kenhPhanHoi: 'TRUC_TIEP', noiDungPhanHoi: 'Khách không đồng ý' }), 'Đã ghi nhận khách từ chối.')}>Khách từ chối</Button>
+          <Button size="small" type="primary" onClick={() => { quoteResponseForm.resetFields();
+            setQuoteResponse({ ticketId: selected.id, id: q.id, decision: 'DA_DUYET' }); }}>Khách đồng ý</Button>
+          <Button size="small" danger onClick={() => { quoteResponseForm.resetFields();
+            setQuoteResponse({ ticketId: selected.id, id: q.id, decision: 'TU_CHOI' }); }}>Khách từ chối</Button>
         </>}
       </Space>}>
       <Table size="small" dataSource={q.chiTiet || []} rowKey="id" pagination={false} columns={[
@@ -300,20 +327,24 @@ export default function ReceptionPage() {
       <Form form={paymentForm} layout="inline" onFinish={(v) => perform(async () => {
         await api.ghiGiaoDichV3(selected.id, { ...v, hoaDonId: finance?.hoaDon?.id || null });
         paymentForm.resetFields(['soTien', 'maThamChieu', 'ghiChu']);
-      }, 'Đã ghi giao dịch.')} initialValues={{ loai: 'THU', phuongThuc: 'TIEN_MAT' }} style={{ gap: 8 }}>
-        <Form.Item name="loai"><Select style={{ width: 100 }} options={[{ value: 'THU', label: 'Thu' }, { value: 'HOAN', label: 'Hoàn' }]} /></Form.Item>
+      }, 'Đã ghi giao dịch.')} style={{ gap: 8 }}>
+        <Form.Item name="loai" rules={[{ required: true, message: 'Chọn loại giao dịch.' }]}>
+          <Select style={{ width: 100 }} placeholder="Loại" options={[{ value: 'THU', label: 'Thu' }, { value: 'HOAN', label: 'Hoàn' }]} /></Form.Item>
         <Form.Item name="soTien" rules={[{ required: true }]}><InputNumber min={1} placeholder="Số tiền" /></Form.Item>
-        <Form.Item name="phuongThuc"><Select style={{ width: 160 }} options={[
+        <Form.Item name="phuongThuc" rules={[{ required: true, message: 'Chọn phương thức thực tế.' }]}>
+          <Select style={{ width: 160 }} placeholder="Phương thức" onChange={() => paymentForm.setFieldValue('maThamChieu', undefined)} options={[
           { value: 'TIEN_MAT', label: 'Tiền mặt' }, { value: 'CHUYEN_KHOAN', label: 'Chuyển khoản' },
           { value: 'THE', label: 'Thẻ' }, { value: 'VI_DIEN_TU', label: 'Ví điện tử' },
         ]} /></Form.Item>
-        <Form.Item name="maThamChieu"><Input placeholder="Mã tham chiếu" maxLength={100} /></Form.Item>
+        <Form.Item name="maThamChieu" rules={paymentMethod && paymentMethod !== 'TIEN_MAT'
+          ? [{ required: true, whitespace: true, message: 'Nhập mã giao dịch để đối chiếu.' }] : []}>
+          <Input placeholder="Mã tham chiếu" maxLength={100} /></Form.Item>
         <Button htmlType="submit" loading={busy}>Ghi giao dịch</Button>
       </Form>
       <Table size="small" style={{ marginTop: 12 }} dataSource={finance?.giaoDich || []} rowKey="id" pagination={false} columns={[
         { title: 'Thời gian', dataIndex: 'thoiGian', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
-        { title: 'Loại', dataIndex: 'loai' }, { title: 'Số tiền', dataIndex: 'soTien', render: money },
-        { title: 'Phương thức', dataIndex: 'phuongThuc' }, { title: 'Tham chiếu', dataIndex: 'maThamChieu' },
+        { title: 'Loại', dataIndex: 'loai', render: statusLabel }, { title: 'Số tiền', dataIndex: 'soTien', render: money },
+        { title: 'Phương thức', dataIndex: 'phuongThuc', render: statusLabel }, { title: 'Tham chiếu', dataIndex: 'maThamChieu' },
       ]} />
     </Card>
     {!finance?.banGiao && <Card size="small" title="Bàn giao thiết bị">
@@ -359,7 +390,7 @@ export default function ReceptionPage() {
         <Button htmlType="submit" disabled={selected?.trangThai !== 'DA_TRA'} loading={busy}>Tạo cam kết</Button>
       </Form>
       <Table size="small" style={{ marginTop: 12 }} dataSource={commitments} rowKey="id" pagination={false} columns={[
-        { title: 'Loại', dataIndex: 'loai' }, { title: 'Bắt đầu', dataIndex: 'ngayBatDau' },
+        { title: 'Loại', dataIndex: 'loai', render: statusLabel }, { title: 'Bắt đầu', dataIndex: 'ngayBatDau' },
         { title: 'Hết hạn', dataIndex: 'ngayKetThuc' }, { title: 'Điều kiện', dataIndex: 'dieuKien' },
       ]} />
     </Card>
@@ -370,7 +401,7 @@ export default function ReceptionPage() {
         claimForm.resetFields();
       }, 'Đã tiếp nhận bảo hành.')} style={{ gap: 8 }}>
         <Form.Item name="camKetId"><Select allowClear style={{ width: 220 }} placeholder="Cam kết (nếu có)"
-          options={commitments.map((x) => ({ value: x.id, label: `#${x.id} — ${x.loai}` }))} /></Form.Item>
+          options={commitments.map((x) => ({ value: x.id, label: `#${x.id} — ${statusLabel(x.loai)}` }))} /></Form.Item>
         <Form.Item name="loiKhachBao" rules={[{ required: true }]}><Input style={{ width: 300 }} placeholder="Lỗi khách báo" maxLength={1000} /></Form.Item>
         <Form.Item name="phieuSuaBaoHanhId"><Select allowClear style={{ width: 220 }}
           placeholder="Phiếu sửa lại (nếu có)" options={warrantyRepairTicketOptions} /></Form.Item>
@@ -379,14 +410,14 @@ export default function ReceptionPage() {
       <Table size="small" style={{ marginTop: 12 }} dataSource={claims} rowKey="id" pagination={{ pageSize: 5 }} columns={[
         { title: 'Mã', dataIndex: 'id', render: (v) => `#${v}` },
         { title: 'Lỗi khách báo', dataIndex: 'loiKhachBao' },
-        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
         { title: 'Lần bảo hành', render: (_, row) => row.pheDuyetLap?.lanThu || '—' },
         { title: 'Phiếu sửa lại', render: (_, row) => row.phieuSuaBaoHanhId
           ? tickets.find((x) => x.id === row.phieuSuaBaoHanhId)?.maPhieu || `#${row.phieuSuaBaoHanhId}`
           : <Button size="small" onClick={() => { setLinkingClaim(row); linkClaimForm.resetFields(); }}>
             Liên kết phiếu sửa</Button> },
         { title: 'Nguyên nhân / chi phí', render: (_, row) => <Space>
-          <Text>{row.phanTich ? `${row.phanTich.benChiuChiPhi} · ${money(row.phanTich.chiPhiThucTe)}` : 'Chưa ghi'}</Text>
+          <Text>{row.phanTich ? `${statusLabel(row.phanTich.benChiuChiPhi)} · ${money(row.phanTich.chiPhiThucTe)}` : 'Chưa ghi'}</Text>
           <Button size="small" onClick={() => {
             setAnalysisClaim(row);
             analysisForm.setFieldsValue(row.phanTich || { chiPhiDuKien: 0 });
@@ -395,7 +426,7 @@ export default function ReceptionPage() {
         { title: 'Duyệt lặp lại', render: (_, row) => <Space>
           <Tag color={row.pheDuyetLap?.trangThai === 'CHO_DUYET' ? 'orange'
             : row.pheDuyetLap?.trangThai === 'TU_CHOI' ? 'red' : 'green'}>
-            {row.pheDuyetLap?.trangThai || '—'}
+            {statusLabel(row.pheDuyetLap?.trangThai)}
           </Tag>
           {user?.role === 'admin' && row.pheDuyetLap?.trangThai === 'CHO_DUYET' &&
             <Button size="small" onClick={() => { setApprovingClaim(row); approvalForm.resetFields(); }}>
@@ -415,7 +446,7 @@ export default function ReceptionPage() {
           return <Form.Item name="trangThai" rules={[{ required: true }]}><Select style={{ width: 190 }} placeholder="Bước tiếp theo"
             options={(claim?.pheDuyetLap?.trangThai === 'CHO_DUYET'
               || claim?.pheDuyetLap?.trangThai === 'TU_CHOI' ? []
-              : warrantyNext[claim?.trangThai] || []).map((x) => ({ value: x, label: x }))} /></Form.Item>;
+              : warrantyNext[claim?.trangThai] || []).map((x) => ({ value: x, label: statusLabel(x) }))} /></Form.Item>;
         }}</Form.Item>
         <Form.Item name="ketLuan"><Input placeholder="Kết luận / lý do từ chối" maxLength={1000} /></Form.Item>
         <Form.Item name="ketQuaXuLy"><Input placeholder="Kết quả xử lý" maxLength={1000} /></Form.Item>
@@ -493,12 +524,17 @@ export default function ReceptionPage() {
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
     <div className="page-heading"><div><Title level={3} style={{ margin: 0 }}>Tiếp nhận & thu ngân</Title>
       <span>Phiếu sửa chữa, lịch hẹn và thanh toán</span></div></div>
+    {catalogLoadError && <Alert type="error" showIcon message={catalogLoadError} />}
+    {ticketLoadError && <Alert type="error" showIcon message={ticketLoadError}
+      action={<Button size="small" onClick={loadTickets}>Thử lại</Button>} />}
     <Space wrap><Input.Search placeholder="Mã phiếu, khách, SĐT, thiết bị" allowClear style={{ width: 300 }}
       value={search} onChange={(e) => setSearch(e.target.value)} />
       <Button onClick={loadTickets}>Làm mới</Button>
       <Button onClick={() => { setCodeOpen(true); setCustomerPhone('');
         setCustomerMatch(null); setLinkCode(null); }}>Cấp mã liên kết khách</Button>
       <Button type="primary" onClick={() => setIntakeOpen(true)}>Tiếp nhận máy</Button></Space>
+    {appointmentLoadError && <Alert type="error" showIcon message={appointmentLoadError}
+      action={<Button size="small" onClick={() => loadAppointments()}>Thử lại</Button>} />}
     <Card size="small" title="Lịch hẹn mang máy đến" extra={<Button onClick={() => loadAppointments()}>Làm mới</Button>}>
       <Table dataSource={appointments} rowKey="id" size="small" pagination={{ pageSize: 5 }} scroll={{ x: 950 }} columns={[
         { title: 'Thời gian', dataIndex: 'thoiGianMongMuon', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
@@ -506,7 +542,7 @@ export default function ReceptionPage() {
         { title: 'SĐT', dataIndex: 'soDienThoai' },
         { title: 'Thiết bị', dataIndex: 'tenThietBi' },
         { title: 'Lỗi báo', dataIndex: 'moTaLoi' },
-        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
         { title: 'Phiếu sửa', dataIndex: 'phieuId', render: (v) => v ? `#${v}` : 'Chưa gắn' },
         { title: '', render: (_, row) => row.trangThai === 'CHO_XAC_NHAN'
           ? <Space>
@@ -528,7 +564,7 @@ export default function ReceptionPage() {
         { title: 'Khách hàng', dataIndex: 'tenKhachHang' },
         { title: 'Thiết bị', dataIndex: 'tenThietBi' },
         { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
-        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
         { title: '', render: (_, row) => <Button onClick={() => openTicket(row)}>Xử lý</Button> },
       ]} />
     <Modal open={codeOpen} title="Cấp mã liên kết hồ sơ khách"
@@ -612,6 +648,33 @@ export default function ReceptionPage() {
     </Modal>
     <IntakeModal visible={intakeOpen} onCancel={() => setIntakeOpen(false)}
       onSubmitTicket={() => { loadTickets(); }} />
+    <Modal open={!!quoteResponse}
+      title={quoteResponse?.decision === 'DA_DUYET' ? 'Ghi nhận khách đồng ý báo giá' : 'Ghi nhận khách từ chối báo giá'}
+      onCancel={() => setQuoteResponse(null)} footer={null} destroyOnHidden zIndex={1100}>
+      <Form form={quoteResponseForm} layout="vertical" onFinish={(values) => perform(async () => {
+        await api.phanHoiBaoGiaV3(quoteResponse.ticketId, quoteResponse.id, {
+          quyetDinh: quoteResponse.decision,
+          kenhPhanHoi: values.kenhPhanHoi,
+          noiDungPhanHoi: values.noiDungPhanHoi.trim(),
+        });
+        setQuoteResponse(null);
+      }, 'Đã ghi nhận phản hồi báo giá.')}>
+        <Form.Item name="kenhPhanHoi" label="Kênh khách phản hồi"
+          rules={[{ required: true, message: 'Chọn kênh khách đã phản hồi.' }]}>
+          <Select options={[
+            { value: 'TRUC_TIEP', label: 'Trực tiếp tại cửa hàng' },
+            { value: 'DIEN_THOAI', label: 'Điện thoại' },
+            { value: 'TIN_NHAN', label: 'Tin nhắn' },
+            { value: 'EMAIL', label: 'Email' },
+          ]} />
+        </Form.Item>
+        <Form.Item name="noiDungPhanHoi" label="Nội dung xác nhận của khách"
+          rules={[{ required: true, whitespace: true, message: 'Ghi nội dung phản hồi để lưu hồ sơ.' }]}>
+          <Input.TextArea rows={3} maxLength={1000} />
+        </Form.Item>
+        <Button type="primary" htmlType="submit" loading={busy}>Lưu phản hồi</Button>
+      </Form>
+    </Modal>
     <Modal open={!!approvingClaim} title={`Duyệt bảo hành lần ${approvingClaim?.pheDuyetLap?.lanThu || ''}`}
       onCancel={() => setApprovingClaim(null)} footer={null} destroyOnHidden>
       <Alert type="warning" showIcon style={{ marginBottom: 12 }}
@@ -637,18 +700,22 @@ export default function ReceptionPage() {
         <Button type="primary" htmlType="submit" loading={busy}>Lưu quyết định</Button>
       </Form>
     </Modal>
-    <Drawer open={!!selected} width="min(1100px, 100vw)" onClose={() => setSelected(null)}
+    <Drawer open={!!selected} width="min(1100px, 100vw)" onClose={() => { setQuoteResponse(null); setSelected(null); }}
       title={`${selected?.maPhieu || ''} — ${selected?.tenKhachHang || ''}`} destroyOnHidden>
       {selected && <Space direction="vertical" style={{ width: '100%' }}>
-        <Text>Trạng thái: <Tag>{selected.trangThai}</Tag> · {selected.tenThietBi} · {selected.soDienThoaiKhach}</Text>
-        <Tabs items={[
+        <Text>Trạng thái: <StatusTag value={selected.trangThai} /> · {selected.tenThietBi} · {selected.soDienThoaiKhach}</Text>
+        {ticketLoadError && <Alert type="warning" showIcon message={ticketLoadError} />}
+        {detailLoadError && <Alert type="error" showIcon message={detailLoadError}
+          action={<Button size="small" onClick={() => loadDetail(selected.id)}>Thử lại</Button>} />}
+        {detailLoading && <Spin style={{ padding: 24 }} />}
+        {!detailLoading && !detailLoadError && detailReadyId === selected.id && <Tabs items={[
           { key: 'operations', label: 'Điều phối · ảnh · hủy phiếu', children: operationsTab },
           { key: 'work', label: 'Công việc sửa chữa', children: <WorkItemsPanel
             ticketId={selected.id} technicians={technicians} issued={exports} claims={claims} /> },
           { key: 'quote', label: 'Báo giá', children: quoteTab },
           { key: 'finance', label: 'Hóa đơn · thu tiền · bàn giao', children: financeTab },
           { key: 'warranty', label: 'Bảo hành khách', children: warrantyTab },
-        ]} />
+        ]} />}
       </Space>}
     </Drawer>
   </Space>;

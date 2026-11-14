@@ -1,6 +1,6 @@
-# Repair System - Frontend
+# TechFix - Frontend
 
-Đây là dự án Frontend cho hệ thống **Repair System**, được xây dựng bằng [React](https://react.dev/) và công cụ build [Vite](https://vitejs.dev/) giúp mang lại trải nghiệm phát triển siêu tốc.
+Giao diện TechFix cho cổng khách hàng, lễ tân, kỹ thuật viên, kho, bảng giá, nhân sự và đối soát.
 
 ## 🛠 Công nghệ sử dụng
 - **Core:** React 19
@@ -12,7 +12,7 @@
 
 ## ⚙️ Yêu cầu môi trường (Prerequisites)
 Trước khi bắt đầu, hãy đảm bảo máy tính của bạn đã cài đặt các phần mềm sau:
-- [Node.js](https://nodejs.org/) (Khuyến nghị sử dụng phiên bản **18.x** trở lên)
+- [Node.js](https://nodejs.org/) **20.19+ hoặc 22.12+** (theo yêu cầu của Vite trong dự án)
 - `npm` (đã được cài đặt kèm sẵn khi bạn cài Node.js)
 
 ---
@@ -39,7 +39,7 @@ Sau khi cài đặt xong thư viện, bạn chạy ứng dụng bằng lệnh:
 ```bash
 npm run dev
 ```
-> 🎉 Terminal sẽ hiển thị đường link local (thường là `http://localhost:5173`). Bạn giữ phím **Ctrl + Click** vào đường dẫn đó hoặc mở trình duyệt web và dán link vào để xem giao diện.
+Mặc định mở tại `http://localhost:3000`. Server phát triển chuyển `/api` sang backend ở `http://localhost:5107` theo `vite.config.js`.
 
 ---
 
@@ -69,3 +69,9 @@ Lễ tân tiếp nhận và phân công → KTV xác nhận nhận máy, ghi k�
 - `npm run build`: Đóng gói ứng dụng để chuẩn bị deploy (sản phẩm cuối nằm ở thư mục `dist`).
 - `npm run lint`: Chạy ESLint để kiểm tra và phát hiện các lỗi cú pháp, format code.
 - `npm run preview`: Chạy thử bản build production trên môi trường local.
+
+## Triển khai
+
+Chạy `npm run lint` và `npm run build`, sau đó phục vụ thư mục `dist` bằng web server có cấu hình SPA fallback về `index.html`. Frontend gọi API qua đường dẫn cùng nguồn `/api`; cấu hình reverse proxy `/api` đến backend khi triển khai. Proxy của Vite chỉ áp dụng cho `npm run dev`.
+
+Trước khi đưa vào sử dụng, kiểm tra backend, migration, quyền truy cập theo vai trò và các luồng thực tế với dữ liệu triển khai. Chức năng hóa đơn điện tử hiện ghi nhận chứng từ phát hành bên ngoài; quy tắc thuế chưa tự tính vào hóa đơn.

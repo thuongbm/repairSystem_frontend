@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Input, Modal, Popconfirm, Select, Space, Table, message } from 'antd';
 import { api } from '../services/api';
+import { statusLabel } from '../utils/status';
 
 const errorText = (e) => e.response?.data?.message || e.message || 'Không xử lý được ảnh.';
 
@@ -58,7 +59,7 @@ export default function TicketPhotos({ ticketId, role, ticketStatus, intakeConfi
 
   return <Card size="small" title="Ảnh tình trạng thiết bị" extra={<Button onClick={reload}>Làm mới</Button>}>
     <Table size="small" dataSource={rows} rowKey="id" pagination={{ pageSize: 8 }} columns={[
-      { title: 'Loại', dataIndex: 'loai' },
+      { title: 'Loại', dataIndex: 'loai', render: statusLabel },
       { title: 'Mô tả', dataIndex: 'moTa', render: (v) => v || '—' },
       { title: 'Thời gian', dataIndex: 'createdAt', render: (v) => v ? new Date(v).toLocaleString('vi-VN') : '—' },
       { title: '', render: (_, row) => <Space>

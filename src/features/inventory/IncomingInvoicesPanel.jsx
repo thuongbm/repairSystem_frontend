@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Table, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
+import StatusTag from '../../components/StatusTag';
 
 const { Text } = Typography;
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
@@ -14,25 +15,35 @@ export default function IncomingInvoicesPanel() {
   const [invoices, setInvoices] = useState([]);
   const [detail, setDetail] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [detailError, setDetailError] = useState('');
 
   const load = useCallback(async () => {
-    try {
-      const [p, h] = await Promise.all([
-        api.getPhieuNhap({ trangThai: 'DA_NHAP_KHO' }), api.getHoaDonDauVaoV3(),
-      ]);
-      setReceipts(p.data || []); setInvoices(h.data || []);
-    } catch (e) { message.error(errorText(e)); }
+    setLoading(true);
+    const [p, h] = await Promise.allSettled([
+      api.getPhieuNhap({ trangThai: 'DA_NHAP_KHO' }), api.getHoaDonDauVaoV3(),
+    ]);
+    if (p.status === 'fulfilled') setReceipts(p.value.data || []);
+    if (h.status === 'fulfilled') setInvoices(h.value.data || []);
+    setLoadError(p.status === 'rejected' || h.status === 'rejected'
+      ? 'Không tải đủ phiếu nhập và hóa đơn đã ghi. Hãy thử lại trước khi đối chiếu.' : '');
+    setLoading(false);
   }, []);
   useEffect(() => { Promise.resolve().then(load); }, [load]);
   useEffect(() => {
     if (!receiptId) return;
     let active = true;
     api.getPhieuNhapById(receiptId).then((r) => { if (active) setDetail(r.data); })
-      .catch((e) => message.error(errorText(e)));
+      .catch((e) => { if (active) setDetailError(`Không tải được chi tiết phiếu nhập: ${errorText(e)}`); });
     return () => { active = false; };
   }, [receiptId]);
 
   const submit = async (values) => {
+    if (loadError || detailError || !detail || detail.phieu?.id !== values.phieuNhapId) {
+      message.error('Cần tải đầy đủ phiếu nhập và hóa đơn trước khi đối chiếu.');
+      return;
+    }
     setBusy(true);
     try {
       await api.ghiHoaDonDauVaoV3({ ...values,
@@ -50,10 +61,14 @@ export default function IncomingInvoicesPanel() {
   return <Space direction="vertical" style={{ width: '100%' }}>
     <Alert type="info" showIcon message="Hóa đơn mua vào được đối chiếu với phiếu nhập đã xác nhận"
       description="Tiền hàng và mã số thuế nhà cung cấp được so với dữ liệu kho. Nếu chênh lệch, hệ thống giữ trạng thái cần kiểm tra và yêu cầu ghi lý do." />
+    {loadError && <Alert type="error" showIcon message={loadError}
+      action={<Button size="small" onClick={load}>Thử lại</Button>} />}
+    {detailError && <Alert type="error" showIcon message={detailError} />}
     <Card size="small" title="Ghi hóa đơn nhà cung cấp">
       <Form form={form} layout="vertical" onFinish={submit}>
         <Form.Item name="phieuNhapId" label="Phiếu nhập" rules={[{ required: true }]}>
-          <Select showSearch optionFilterProp="label" options={pending.map((x) => ({
+          <Select showSearch optionFilterProp="label" onChange={() => { setDetail(null); setDetailError(''); }}
+            options={pending.map((x) => ({
             value: x.id, label: `${x.maPn} · ${x.tenNcc || `NCC #${x.nhaCungCapId}`}`,
           }))} /></Form.Item>
         {detail && <Text>Giá trị nhập kho: <b>{money(stockValue)}</b> · Chứng từ NCC: {detail.phieu?.soChungTuNcc || detail.soChungTuNcc || '—'}</Text>}
@@ -71,18 +86,19 @@ export default function IncomingInvoicesPanel() {
         </Space>
         <Form.Item name="ghiChu" label="Lý do chênh lệch (nếu có)">
           <Input.TextArea maxLength={500} rows={2} /></Form.Item>
-        <Button type="primary" htmlType="submit" loading={busy}>Ghi và đối chiếu</Button>
+        <Button type="primary" htmlType="submit" loading={busy}
+          disabled={!!loadError || !!detailError || !detail}>Ghi và đối chiếu</Button>
       </Form>
     </Card>
-    <Card size="small" title="Hóa đơn đầu vào đã ghi" extra={<Button onClick={load}>Làm mới</Button>}>
-      <Table size="small" dataSource={invoices} rowKey="id" pagination={{ pageSize: 8 }} columns={[
+    <Card size="small" title="Hóa đơn đầu vào đã ghi" extra={<Button onClick={load} loading={loading}>Làm mới</Button>}>
+      <Table size="small" loading={loading} dataSource={invoices} rowKey="id" pagination={{ pageSize: 8 }} columns={[
         { title: 'Phiếu nhập', dataIndex: 'phieuNhapId', render: (id) => receipts.find((x) => x.id === id)?.maPn || `#${id}` },
         { title: 'Số hóa đơn', dataIndex: 'soHoaDon' },
         { title: 'Ngày', dataIndex: 'ngayHoaDon', render: (v) => v ? dayjs(v).format('DD/MM/YYYY') : '—' },
         { title: 'Tiền hàng', dataIndex: 'tienHang', render: money },
         { title: 'Thuế', dataIndex: 'tienThue', render: money },
         { title: 'Chênh lệch', dataIndex: 'chenhLech', render: money },
-        { title: 'Đối chiếu', dataIndex: 'trangThai', render: (v) => <Tag color={v === 'KHOP' ? 'green' : 'red'}>{v}</Tag> },
+        { title: 'Đối chiếu', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
         { title: 'Ghi chú', dataIndex: 'ghiChu' },
       ]} />
     </Card>

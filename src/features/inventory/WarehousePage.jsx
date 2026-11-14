@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   Tabs,
@@ -10,11 +10,9 @@ import {
   Modal,
   Form,
   Select,
-  DatePicker,
   message,
   Badge,
   InputNumber,
-  Switch,
   Divider,
   Typography,
   Row,
@@ -32,7 +30,6 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   WarningOutlined,
-  ImportOutlined,
   ExportOutlined,
   DeleteOutlined,
   EyeOutlined,
@@ -45,7 +42,7 @@ import {
   SnippetsOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { api } from '../../services/api';
+import { api, STOCK_CHANGED_EVENT, WORK_CHANGED_EVENT } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 import { useLocation } from 'react-router-dom';
 import MauLinhKienModal from './MauLinhKienModal';
@@ -53,6 +50,8 @@ import BaoHanhNccTab from './BaoHanhNccTab';
 import StockControlTab from './StockControlTab';
 import IncomingInvoicesPanel from './IncomingInvoicesPanel';
 import OperatingRulesPanel from './OperatingRulesPanel';
+import ImportReceiptModal from './ImportReceiptModal';
+import StatusTag from '../../components/StatusTag';
 
 const { Option } = Select;
 const { Text, Title } = Typography;
@@ -64,6 +63,8 @@ const WarehousePage = () => {
   const [form] = Form.useForm();
   const [khoForm] = Form.useForm();
   const [isKhoModalVisible, setIsKhoModalVisible] = useState(false);
+  const [isKhoManageModalVisible, setIsKhoManageModalVisible] = useState(false);
+  const [deletingKhoId, setDeletingKhoId] = useState(null);
   const [nccForm] = Form.useForm();
   const [isNccModalVisible, setIsNccModalVisible] = useState(false);
   const [minStockForm] = Form.useForm();
@@ -82,6 +83,14 @@ const WarehousePage = () => {
   const [inventoryList, setInventoryList] = useState([]);
   const [alertList, setAlertList] = useState([]);
   const [importHistoryList, setImportHistoryList] = useState([]);
+  const inventoryRequestId = useRef(0);
+  const alertRequestId = useRef(0);
+  const [alertLoadError, setAlertLoadError] = useState('');
+  const [inventoryLoadError, setInventoryLoadError] = useState('');
+  const [historyLoadError, setHistoryLoadError] = useState('');
+  const [catalogLoadError, setCatalogLoadError] = useState('');
+  const [serialLoadError, setSerialLoadError] = useState('');
+  const [ticketLoadError, setTicketLoadError] = useState('');
 
   // --- Danh mục hỗ trợ Modal Nhập kho ---
   const [khoList, setKhoList] = useState([]);
@@ -111,6 +120,8 @@ const WarehousePage = () => {
   const [isMauModalVisible, setIsMauModalVisible] = useState(false);
   const [editingMauId, setEditingMauId] = useState(null);
   const [partPolicies, setPartPolicies] = useState({});
+  const [partPolicyLoadState, setPartPolicyLoadState] = useState({});
+  const importConfirmNow = useRef(true);
   const [selectedPhieuDetail, setSelectedPhieuDetail] = useState(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -127,6 +138,9 @@ const WarehousePage = () => {
 
   // Xuất kho cho phiếu sửa chữa theo Serial (Giai đoạn 3 - Mục 3.2)
   const [repairTickets, setRepairTickets] = useState([]);
+  const [pendingExportTicketIds, setPendingExportTicketIds] = useState([]);
+  const [pendingExportError, setPendingExportError] = useState(false);
+  const ticketRequestId = useRef(0);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [exportedByTicket, setExportedByTicket] = useState({});
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
@@ -164,6 +178,7 @@ const WarehousePage = () => {
 
   // 1. Tải danh sách tồn kho: GET /api/kho/ton-kho
   const fetchTonKho = useCallback(async () => {
+    const request = ++inventoryRequestId.current;
     setLoadingInventory(true);
     try {
       const params = {};
@@ -173,26 +188,38 @@ const WarehousePage = () => {
 
       const res = await api.getTonKho(params);
       const data = res?.data || res || [];
-      setInventoryList(Array.isArray(data) ? data : []);
+      if (request === inventoryRequestId.current) {
+        setInventoryList(Array.isArray(data) ? data : []);
+        setInventoryLoadError('');
+      }
     } catch (err) {
-      console.error('Lỗi tải tồn kho:', err);
-      message.error(err.response?.data?.message || 'Không thể tải danh sách tồn kho từ máy chủ.');
+      if (request === inventoryRequestId.current) {
+        console.error('Lỗi tải tồn kho:', err);
+        setInventoryLoadError('Không cập nhật được tồn kho. Dữ liệu đang hiển thị có thể đã cũ.');
+      }
     } finally {
-      setLoadingInventory(false);
+      if (request === inventoryRequestId.current) setLoadingInventory(false);
     }
   }, [selectedKhoId, searchTerm, stockStatusFilter]);
 
   // 2. Tải cảnh báo hết hàng / sắp hết: GET /api/kho/canh-bao-het-hang
   const fetchCanhBao = useCallback(async () => {
+    const request = ++alertRequestId.current;
     setLoadingAlerts(true);
     try {
       const res = await api.getCanhBaoTonKho(selectedKhoId || undefined);
       const data = res?.data || res || [];
-      setAlertList(Array.isArray(data) ? data : []);
+      if (request === alertRequestId.current) {
+        setAlertList(Array.isArray(data) ? data : []);
+        setAlertLoadError('');
+      }
     } catch (err) {
-      console.error('Lỗi tải cảnh báo kho:', err);
+      if (request === alertRequestId.current) {
+        console.error('Lỗi tải cảnh báo kho:', err);
+        setAlertLoadError('Không cập nhật được cảnh báo tồn kho. Số liệu đang hiển thị có thể đã cũ.');
+      }
     } finally {
-      setLoadingAlerts(false);
+      if (request === alertRequestId.current) setLoadingAlerts(false);
     }
   }, [selectedKhoId]);
 
@@ -207,8 +234,10 @@ const WarehousePage = () => {
       const res = await api.getPhieuNhap(params);
       const data = res?.data || res || [];
       setImportHistoryList(Array.isArray(data) ? data : []);
+      setHistoryLoadError('');
     } catch (err) {
       console.error('Lỗi tải lịch sử phiếu nhập:', err);
+      setHistoryLoadError('Không tải được lịch sử phiếu nhập. Dữ liệu đang hiển thị có thể đã cũ.');
     } finally {
       setLoadingHistory(false);
     }
@@ -235,8 +264,11 @@ const WarehousePage = () => {
         const data = lkRes.value?.data || lkRes.value || [];
         setLinhKienList(Array.isArray(data) ? data : []);
       }
+      setCatalogLoadError([khoRes, nccRes, lkRes].some((result) => result.status === 'rejected')
+        ? 'Một phần danh mục chưa tải được. Hãy tải lại trước khi lập phiếu.' : '');
     } catch (err) {
       console.error('Lỗi tải danh mục cấu hình kho:', err);
+      setCatalogLoadError('Không tải được danh mục kho. Hãy thử lại.');
     }
   }, []);
 
@@ -252,9 +284,10 @@ const WarehousePage = () => {
       const res = await api.getLinhKienSerials(params);
       const data = res?.data || res || [];
       setAllSerialsList(Array.isArray(data) ? data : []);
+      setSerialLoadError('');
     } catch (err) {
       console.warn('Lỗi tải danh sách serial kho:', err);
-      setAllSerialsList([]);
+      setSerialLoadError('Không cập nhật được danh sách serial. Dữ liệu đang hiển thị có thể đã cũ.');
     } finally {
       setLoadingSerialsList(false);
     }
@@ -291,18 +324,31 @@ const WarehousePage = () => {
 
   // 5. Tải phiếu sửa chữa đang sửa / chờ linh kiện: GET /api/phieu-sua-chua?trangThai=DANG_SUA,CHO_LINH_KIEN
   const fetchTickets = useCallback(async () => {
+    const request = ++ticketRequestId.current;
     setLoadingTickets(true);
-    try {
-      const res = await api.getPhieuSuaChua({ trangThai: 'DANG_SUA,CHO_LINH_KIEN' });
-      const data = res?.data || [];
+    const [ticketsResult, pendingResult] = await Promise.allSettled([
+      api.getPhieuSuaChua({ trangThai: 'DANG_SUA,CHO_LINH_KIEN' }),
+      api.getPhieuCanXuLyVatTuV3(),
+    ]);
+    if (request !== ticketRequestId.current) return;
+    if (ticketsResult.status === 'fulfilled') {
+      const data = ticketsResult.value?.data || [];
       setRepairTickets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Lỗi tải phiếu sửa chữa:', err);
-      message.error(err.response?.data?.message || 'Không thể tải danh sách phiếu sửa chữa.');
-      setRepairTickets([]);
-    } finally {
-      setLoadingTickets(false);
+      setTicketLoadError('');
+    } else {
+      console.error('Lỗi tải phiếu sửa chữa:', ticketsResult.reason);
+      setTicketLoadError('Không cập nhật được phiếu sửa chữa. Dữ liệu đang hiển thị có thể đã cũ.');
     }
+    if (pendingResult.status === 'fulfilled') {
+      const data = pendingResult.value?.data || [];
+      setPendingExportTicketIds(Array.isArray(data) ? data : []);
+      setPendingExportError(false);
+    } else {
+      console.error('Lỗi tải số phiếu cần xuất vật tư:', pendingResult.reason);
+      setPendingExportTicketIds([]);
+      setPendingExportError(true);
+    }
+    setLoadingTickets(false);
   }, []);
 
   // Khởi chạy khi component mount
@@ -318,42 +364,106 @@ const WarehousePage = () => {
     return () => clearTimeout(timer);
   }, [fetchTonKho, fetchCanhBao, fetchPhieuNhap, fetchMetaCatalogs, fetchAllSerials, fetchTickets]);
 
+  useEffect(() => {
+    const refreshStock = () => {
+      fetchTonKho();
+      fetchCanhBao();
+      fetchAllSerials();
+    };
+    window.addEventListener(STOCK_CHANGED_EVENT, refreshStock);
+    return () => window.removeEventListener(STOCK_CHANGED_EVENT, refreshStock);
+  }, [fetchTonKho, fetchCanhBao, fetchAllSerials]);
+
+  useEffect(() => {
+    window.addEventListener(WORK_CHANGED_EVENT, fetchTickets);
+    return () => window.removeEventListener(WORK_CHANGED_EVENT, fetchTickets);
+  }, [fetchTickets]);
+
+  useEffect(() => {
+    const refreshVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchTonKho();
+      fetchCanhBao();
+      fetchTickets();
+    };
+    const interval = window.setInterval(refreshVisible, 30000);
+    document.addEventListener('visibilitychange', refreshVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshVisible);
+    };
+  }, [fetchTonKho, fetchCanhBao, fetchTickets]);
+
+  const handleDeleteKho = async (kho) => {
+    setDeletingKhoId(kho.id);
+    try {
+      await api.xoaKhoV3(kho.id);
+      setKhoList((current) => current.filter((item) => item.id !== kho.id));
+      setInventoryList((current) => current.filter((item) => item.khoId !== kho.id));
+      setAlertList((current) => current.filter((item) => item.khoId !== kho.id));
+      setSelectedKhoId((current) => current === kho.id ? null : current);
+      setSerialFilterKhoId((current) => current === kho.id ? null : current);
+      if (exportKhoId === kho.id) {
+        setExportKhoId(null);
+        setExportStock([]);
+        setExportLinhKienId(null);
+        setExportSerials([]);
+        setExportSerialIds([]);
+      }
+      if (form.getFieldValue('khoId') === kho.id) form.setFieldValue('khoId', undefined);
+      message.success(`Đã xóa kho ${kho.tenKho} khỏi danh sách sử dụng.`);
+    } catch (error) {
+      message.error(errorText(error));
+    } finally {
+      setDeletingKhoId(null);
+    }
+  };
+
   // ==========================================
   // XỬ LÝ LẬP PHIẾU NHẬP (POST /api/phieu-nhap/tao-moi)
   // ==========================================
 
-  const handleOpenImportModal = (prefillLinhKienId = null, prefillQty = 10) => {
-    // Giá trị khởi tạo cho form
-    const defaultKhoId = khoList.length > 0 ? khoList[0].id : undefined;
-    const defaultNccId = nccList.length > 0 ? nccList[0].id : undefined;
-    const defaultPartId = prefillLinhKienId || (linhKienList.length > 0 ? linhKienList[0].id : undefined);
-
+  const handleOpenImportModal = (prefillLinhKienId = null) => {
+    importConfirmNow.current = true;
     form.resetFields();
     form.setFieldsValue({
-      khoId: defaultKhoId,
-      nhaCungCapId: defaultNccId,
+      khoId: khoList.length === 1 ? khoList[0].id : undefined,
+      nhaCungCapId: nccList.length === 1 ? nccList[0].id : undefined,
       ngayNhap: dayjs(),
-      xacNhanNgay: true,
       chiTiet: [
         {
-          linhKienId: defaultPartId,
-          soLuongNhap: prefillQty,
-          donGiaNhap: 0,
+          linhKienId: prefillLinhKienId || undefined,
           danhSachSerial: [],
         },
       ],
     });
 
     setIsImportModalVisible(true);
-    if (defaultPartId) loadPartPolicy(defaultPartId);
+    if (prefillLinhKienId) loadPartPolicy(prefillLinhKienId);
   };
 
   const loadPartPolicy = async (id) => {
-    if (!id || partPolicies[id] !== undefined) return;
+    if (!id || typeof partPolicies[id] === 'boolean') return;
+    setPartPolicyLoadState((prev) => ({ ...prev, [id]: 'loading' }));
     try {
       const result = await api.getMauLinhKienV3(id);
-      setPartPolicies((prev) => ({ ...prev, [id]: result.data?.theoDoiSerial }));
-    } catch (error) { console.error('Không đọc được chính sách serial:', error); }
+      const policy = result.data?.theoDoiSerial;
+      setPartPolicies((prev) => ({ ...prev, [id]: typeof policy === 'boolean' ? policy : null }));
+      setPartPolicyLoadState((prev) => ({ ...prev, [id]: typeof policy === 'boolean' ? 'ready' : 'error' }));
+    } catch (error) {
+      console.error('Không đọc được chính sách serial:', error);
+      setPartPolicies((prev) => ({ ...prev, [id]: null }));
+      setPartPolicyLoadState((prev) => ({ ...prev, [id]: 'error' }));
+    }
+  };
+
+  const submitImport = (confirmNow) => {
+    if (catalogLoadError || !khoList.length || !nccList.length || !linhKienList.length) {
+      message.error('Danh mục kho chưa sẵn sàng. Hãy tải lại rồi thử tiếp.');
+      return;
+    }
+    importConfirmNow.current = confirmNow;
+    form.submit();
   };
 
   // Mở modal dán nhanh danh sách serial từ NCC
@@ -384,10 +494,8 @@ const WarehousePage = () => {
       message.info(`Đã tự động loại bỏ ${rawItems.length - uniqueSerials.length} mã serial bị trùng lặp.`);
     }
 
-    // Cập nhật danh sách serial vào Form
+    // Số lượng thực nhận cần được đối chiếu độc lập với danh sách serial.
     form.setFieldValue(['chiTiet', currentSerialFieldIndex, 'danhSachSerial'], uniqueSerials);
-    // Tự động đồng bộ số lượng nhập bằng đúng số lượng serial vừa nạp
-    form.setFieldValue(['chiTiet', currentSerialFieldIndex, 'soLuongNhap'], uniqueSerials.length);
 
     message.success(`Đã nạp ${uniqueSerials.length} mã serial thành công!`);
     setIsPasteSerialModalVisible(false);
@@ -395,12 +503,24 @@ const WarehousePage = () => {
   };
 
   const handleImportSubmit = async (values) => {
+    if (catalogLoadError || !khoList.length || !nccList.length || !linhKienList.length) {
+      message.error('Danh mục kho chưa sẵn sàng. Hãy tải lại trước khi lập phiếu.');
+      return;
+    }
     if (!values.chiTiet || values.chiTiet.length === 0) {
       message.error('Vui lòng thêm ít nhất một dòng linh kiện cần nhập!');
       return;
     }
 
+    const duplicatePart = values.chiTiet.find((item, index) =>
+      values.chiTiet.findIndex((other) => other.linhKienId === item.linhKienId) !== index);
+    if (duplicatePart) {
+      message.error('Một linh kiện chỉ được xuất hiện một lần trên phiếu. Hãy gộp số lượng vào cùng một dòng.');
+      return;
+    }
+
     // Chính sách serial của mẫu hàng quyết định có bắt buộc nhập serial hay không.
+    const seenSerials = new Set();
     for (let i = 0; i < values.chiTiet.length; i++) {
       const item = values.chiTiet[i];
       const serials = item.danhSachSerial || [];
@@ -430,6 +550,14 @@ const WarehousePage = () => {
         );
         return;
       }
+      for (const serial of serials) {
+        const normalized = String(serial).trim().toUpperCase();
+        if (seenSerials.has(normalized)) {
+          message.error(`Serial ${normalized} bị trùng trong phiếu. Vui lòng kiểm tra lại.`);
+          return;
+        }
+        seenSerials.add(normalized);
+      }
     }
 
     setSubmittingImport(true);
@@ -440,7 +568,7 @@ const WarehousePage = () => {
         soChungTuNcc: values.soChungTuNcc?.trim() || null,
         ngayNhap: values.ngayNhap ? values.ngayNhap.toISOString() : null,
         ghiChu: values.ghiChu?.trim() || null,
-        xacNhanNgay: values.xacNhanNgay ?? true,
+        xacNhanNgay: importConfirmNow.current,
         chiTiet: values.chiTiet.map((item) => {
           const serials = (item.danhSachSerial || [])
             .map((s) => String(s).trim().toUpperCase())
@@ -455,19 +583,17 @@ const WarehousePage = () => {
       };
 
       const res = await api.taoPhieuNhap(payload);
-      const isSuccessDirect = values.xacNhanNgay !== false;
+      const isSuccessDirect = importConfirmNow.current;
       message.success(
         res?.message || (isSuccessDirect
-          ? 'Lập phiếu nhập thành công, số lượng tồn kho đã được cộng dồn tức thì!'
-          : 'Đã lưu phiếu nhập nháp!')
+          ? 'Đã xác nhận phiếu nhập và cập nhật tồn kho.'
+          : 'Đã lưu phiếu nhập nháp.')
       );
 
       setIsImportModalVisible(false);
       form.resetFields();
 
       // Đồng bộ ngay lập tức dữ liệu mới từ Backend
-      fetchTonKho();
-      fetchCanhBao();
       fetchPhieuNhap();
     } catch (err) {
       console.error('Lỗi tạo phiếu nhập:', err);
@@ -488,8 +614,6 @@ const WarehousePage = () => {
       const res = await api.xacNhanPhieuNhap(id);
       message.success(res?.message || 'Đã xác nhận nhập kho và cộng tồn kho thành công!');
       fetchPhieuNhap();
-      fetchTonKho();
-      fetchCanhBao();
     } catch (err) {
       message.error(err.response?.data?.message || 'Xác nhận nhập kho thất bại.');
     }
@@ -541,8 +665,6 @@ const WarehousePage = () => {
       );
       message.success('Cập nhật mức tồn tối thiểu thành công!');
       setIsMinStockModalVisible(false);
-      fetchTonKho();
-      fetchCanhBao();
     } catch (err) {
       message.error(err.response?.data?.message || 'Cập nhật mức tồn tối thiểu thất bại.');
     } finally {
@@ -689,10 +811,6 @@ const WarehousePage = () => {
       message.success(res?.message || 'Xuất kho thành công!');
       handleCloseExportModal();
       // Đồng bộ lại dữ liệu thật từ máy chủ
-      fetchTonKho();
-      fetchCanhBao();
-      fetchAllSerials();
-      fetchTickets();
       loadExportedLines(ticketId);
     } catch (err) {
       // Hiện lỗi thật, không giả lập thành công
@@ -728,7 +846,7 @@ const WarehousePage = () => {
     if (stockStatusFilter === 'out_of_stock') {
       matchesStatus = item.soLuongTon === 0;
     } else if (stockStatusFilter === 'low_stock') {
-      matchesStatus = item.sapHet || item.soLuongTon <= item.mucTonToiThieu;
+      matchesStatus = item.soLuongTon === 0 || item.soLuongTon < item.mucTonToiThieu;
     }
 
     return matchesSearch && matchesKho && matchesStatus;
@@ -783,7 +901,7 @@ const WarehousePage = () => {
           color = 'error';
           icon = <WarningOutlined />;
           tooltipText = 'Đã hết hàng hoàn toàn!';
-        } else if (record.sapHet || val <= record.mucTonToiThieu) {
+        } else if (val < record.mucTonToiThieu) {
           color = 'warning';
           icon = <WarningOutlined />;
           tooltipText = `Dưới ngưỡng an toàn (${record.mucTonToiThieu} ${record.donViTinh})`;
@@ -833,7 +951,7 @@ const WarehousePage = () => {
           ghost
           size="small"
           icon={<PlusOutlined />}
-          onClick={() => handleOpenImportModal(record.linhKienId, record.mucTonToiThieu ? Math.max(record.mucTonToiThieu * 2, 10) : 10)}
+          onClick={() => handleOpenImportModal(record.linhKienId)}
         >
           Nhập thêm
         </Button>
@@ -920,7 +1038,7 @@ const WarehousePage = () => {
           type="primary"
           size="small"
           icon={<ShoppingCartOutlined />}
-          onClick={() => handleOpenImportModal(record.linhKienId, record.canNhapThem > 0 ? record.canNhapThem : 10)}
+          onClick={() => handleOpenImportModal(record.linhKienId)}
         >
           Lập phiếu nhập
         </Button>
@@ -980,7 +1098,7 @@ const WarehousePage = () => {
       key: 'tongTienNhap',
       align: 'right',
       width: 150,
-      render: (val) => <Text strong style={{ color: '#1677ff' }}>{(val || 0).toLocaleString()} đ</Text>,
+      render: (val) => <Text strong style={{ color: '#1677ff' }}>{Number(val || 0).toLocaleString('vi-VN')} đ</Text>,
     },
     {
       title: 'Trạng thái',
@@ -988,12 +1106,7 @@ const WarehousePage = () => {
       key: 'trangThai',
       width: 140,
       align: 'center',
-      render: (status) => {
-        if (status === 'DA_NHAP_KHO') return <Tag color="success">Đã nhập kho</Tag>;
-        if (status === 'NHAP') return <Tag color="warning">Bản nháp</Tag>;
-        if (status === 'HUY') return <Tag color="error">Đã hủy</Tag>;
-        return <Tag>{status}</Tag>;
-      },
+      render: (status) => <StatusTag value={status} />,
     },
     {
       title: 'Thao tác',
@@ -1088,11 +1201,7 @@ const WarehousePage = () => {
       dataIndex: 'trangThai',
       key: 'trangThai',
       width: 130,
-      render: (status) => {
-        if (status === 'DANG_SUA') return <Tag color="processing">Đang sửa chữa</Tag>;
-        if (status === 'CHO_LINH_KIEN') return <Tag color="warning">Chờ linh kiện</Tag>;
-        return <Tag>{status}</Tag>;
-      },
+      render: (status) => <StatusTag value={status} />,
     },
     {
       title: 'Vật tư đã xuất',
@@ -1190,20 +1299,7 @@ const WarehousePage = () => {
       title: 'Trạng thái',
       dataIndex: 'trangThai',
       key: 'trangThai',
-      render: (tt) => {
-        switch (tt) {
-          case 'TRONG_KHO':
-            return <Tag color="cyan">Trong kho</Tag>;
-          case 'DA_XUAT':
-            return <Tag color="green">Đã xuất máy</Tag>;
-          case 'BAO_HANH':
-            return <Tag color="orange">Đang bảo hành</Tag>;
-          case 'THANH_LY':
-            return <Tag color="red">Đã thanh lý</Tag>;
-          default:
-            return <Tag>{tt}</Tag>;
-        }
-      },
+      render: (status) => <StatusTag value={status} />,
     },
     {
       title: 'Thao tác',
@@ -1227,7 +1323,7 @@ const WarehousePage = () => {
 
   // Số lượng cảnh báo sắp hết/hết hàng từ API
   const lowStockCount = alertList.length;
-  const pendingTicketsCount = repairTickets.length;
+  const pendingTicketsCount = pendingExportTicketIds.length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1273,7 +1369,7 @@ const WarehousePage = () => {
             placeholder="Chọn mẫu để sửa" value={editingMauId} onChange={setEditingMauId}
             options={linhKienList.map((part) => ({ value: part.id, label: `${part.maLk} — ${part.tenLinhKien}` }))} />
           <Button disabled={!editingMauId} onClick={() => setIsMauModalVisible(true)}>Sửa mẫu</Button>
-          {user?.role === 'admin' && <Button onClick={() => setIsKhoModalVisible(true)}>Tạo kho</Button>}
+          {user?.role === 'admin' && <Button onClick={() => setIsKhoManageModalVisible(true)}>Quản lý kho</Button>}
           {user?.role === 'admin' && <Button onClick={() => setIsNccModalVisible(true)}>Tạo nhà cung cấp</Button>}
           <Button
             type="primary"
@@ -1286,6 +1382,42 @@ const WarehousePage = () => {
         </Space>
       </div>
 
+      {user?.role === 'admin' && <Modal
+        title={`Quản lý kho (${khoList.length})`}
+        open={isKhoManageModalVisible}
+        onCancel={() => setIsKhoManageModalVisible(false)}
+        footer={null}
+        width={760}
+      >
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsKhoModalVisible(true)} style={{ marginBottom: 16 }}>
+          Tạo kho
+        </Button>
+        <Table
+          rowKey="id"
+          dataSource={khoList}
+          pagination={{ pageSize: 5 }}
+          columns={[
+            { title: 'Mã kho', dataIndex: 'maKho', key: 'maKho' },
+            { title: 'Tên kho', dataIndex: 'tenKho', key: 'tenKho' },
+            { title: 'Địa điểm', dataIndex: 'diaDiem', key: 'diaDiem', render: (value) => value || '—' },
+            {
+              title: 'Thao tác', key: 'action',
+              render: (_, kho) => <Popconfirm
+                title={`Xóa kho ${kho.tenKho}?`}
+                description="Chỉ xóa được khi kho hết hàng và không còn phiếu nhập, kiểm kê, cách ly hoặc bảo hành NCC đang xử lý. Chứng từ cũ vẫn được lưu."
+                onConfirm={() => handleDeleteKho(kho)}
+                okText="Xóa kho"
+                cancelText="Hủy"
+                okButtonProps={{ danger: true }}
+              >
+                <Button danger icon={<DeleteOutlined />} loading={deletingKhoId === kho.id} disabled={deletingKhoId !== null && deletingKhoId !== kho.id}>
+                  Xóa
+                </Button>
+              </Popconfirm>,
+            },
+          ]}
+        />
+      </Modal>}
       <Modal title="Tạo kho mới" open={isKhoModalVisible}
         onCancel={() => setIsKhoModalVisible(false)}
         onOk={() => khoForm.submit()} okText="Tạo kho" destroyOnHidden>
@@ -1330,8 +1462,8 @@ const WarehousePage = () => {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
             <Statistic
-              title="Tổng mặt hàng theo dõi"
-              value={inventoryList.length}
+              title="Mặt hàng theo bộ lọc kho"
+              value={inventoryLoadError ? '—' : inventoryList.length}
               prefix={<AppstoreOutlined style={{ color: '#1677ff' }} />}
               suffix="linh kiện"
             />
@@ -1340,8 +1472,8 @@ const WarehousePage = () => {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
             <Statistic
-              title="Cảnh báo cần nhập thêm"
-              value={lowStockCount}
+              title="Cảnh báo tồn kho"
+              value={alertLoadError ? '—' : lowStockCount}
               valueStyle={{ color: lowStockCount > 0 ? '#cf1322' : '#3f8600' }}
               prefix={<WarningOutlined />}
               suffix="mặt hàng"
@@ -1351,8 +1483,8 @@ const WarehousePage = () => {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
             <Statistic
-              title="Tổng số phiếu nhập kho"
-              value={importHistoryList.length}
+              title="Phiếu nhập theo bộ lọc"
+              value={historyLoadError ? '—' : importHistoryList.length}
               prefix={<HistoryOutlined style={{ color: '#722ed1' }} />}
               suffix="đợt nhập"
             />
@@ -1361,8 +1493,8 @@ const WarehousePage = () => {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
             <Statistic
-              title="Phiếu cần xuất vật tư"
-              value={pendingTicketsCount}
+              title="Phiếu vật tư cần xử lý"
+              value={pendingExportError ? '—' : pendingTicketsCount}
               valueStyle={{ color: pendingTicketsCount > 0 ? '#fa8c16' : '#595959' }}
               prefix={<CheckCircleOutlined />}
               suffix="phiếu"
@@ -1370,6 +1502,9 @@ const WarehousePage = () => {
           </Card>
         </Col>
       </Row>
+
+      {alertLoadError && <Alert type="error" showIcon message={alertLoadError}
+        action={<Button size="small" onClick={fetchCanhBao}>Thử lại</Button>} />}
 
       {/* Tabs Chức năng chính */}
       <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
@@ -1388,6 +1523,9 @@ const WarehousePage = () => {
               ),
               children: (
                 <div>
+                  {inventoryLoadError && <Alert type="error" showIcon style={{ marginBottom: 16 }}
+                    message={inventoryLoadError}
+                    action={<Button size="small" onClick={fetchTonKho}>Thử lại</Button>} />}
                   {/* Thanh tìm kiếm và bộ lọc */}
                   <Row gutter={[16, 16]} style={{ marginBottom: 16 }} align="middle" justify="space-between">
                     <Col xs={24} md={16}>
@@ -1419,8 +1557,8 @@ const WarehousePage = () => {
                           onChange={(val) => setStockStatusFilter(val)}
                         >
                           <Option value="all">Tất cả tình trạng</Option>
-                          <Option value="low_stock">⚠️ Sắp hết hoặc hết</Option>
-                          <Option value="out_of_stock">⛔ Đã hết hàng (0)</Option>
+                          <Option value="low_stock">Sắp hết hoặc hết</Option>
+                          <Option value="out_of_stock">Đã hết hàng (0)</Option>
                         </Select>
                       </Space>
                     </Col>
@@ -1457,7 +1595,7 @@ const WarehousePage = () => {
                 <div>
                   <Alert
                     message="Ngưỡng cảnh báo tự động"
-                    description="Danh sách các linh kiện có tồn kho hiện tại thấp hơn hoặc bằng mức tối thiểu (Ngưỡng an toàn). Hãy tạo phiếu nhập để đảm bảo kỹ thuật viên có đủ linh kiện sửa chữa."
+                    description="Danh sách các linh kiện đã hết hoặc có tồn kho thấp hơn ngưỡng an toàn. Bằng ngưỡng vẫn được xem là an toàn."
                     type="warning"
                     showIcon
                     style={{ marginBottom: 16, borderRadius: 8 }}
@@ -1479,6 +1617,9 @@ const WarehousePage = () => {
               label: 'Lịch sử Nhập hàng',
               children: (
                 <div>
+                  {historyLoadError && <Alert type="error" showIcon style={{ marginBottom: 16 }}
+                    message={historyLoadError}
+                    action={<Button size="small" onClick={fetchPhieuNhap}>Thử lại</Button>} />}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                     <Space>
                       <Select
@@ -1540,6 +1681,9 @@ const WarehousePage = () => {
                     <div>
                       <CheckCircleOutlined style={{ color: '#1677ff', marginRight: '8px' }} />
                       <b>Quy định kiểm soát:</b> 100% lệnh xuất linh kiện phải gắn liền với Mã Phiếu Tiếp Nhận của khách hàng (trạng thái Đang sửa / Chờ linh kiện). Nếu linh kiện theo dõi Serial, bắt buộc chỉ định mã Serial từ kho.
+                      <div style={{ marginTop: 6, fontSize: 12 }}>
+                        Số trên tab chỉ tính phiếu có yêu cầu vật tư chờ duyệt hoặc còn số lượng đã duyệt chưa xuất đủ. Bảng vẫn giữ các phiếu đang sửa để tra cứu lịch sử xuất.
+                      </div>
                     </div>
                     <Button
                       icon={<ReloadOutlined />}
@@ -1550,12 +1694,17 @@ const WarehousePage = () => {
                       Làm mới phiếu
                     </Button>
                   </div>
+                  {pendingExportError && <Alert type="error" showIcon style={{ marginBottom: 16 }}
+                    message="Không cập nhật được số phiếu cần xử lý vật tư. Hãy thử làm mới phiếu." />}
+                  {ticketLoadError && <Alert type="error" showIcon style={{ marginBottom: 16 }}
+                    message={ticketLoadError}
+                    action={<Button size="small" onClick={fetchTickets}>Thử lại</Button>} />}
                   <Table
                     columns={ticketExportColumns}
                     dataSource={repairTickets}
                     rowKey="id"
                     loading={loadingTickets}
-                    pagination={{ pageSize: 8, showTotal: (t) => `Tổng ${t} phiếu cần xử lý` }}
+                    pagination={{ pageSize: 8, showTotal: (t) => `Tổng ${t} phiếu đang sửa / chờ linh kiện` }}
                     expandable={{
                       expandedRowRender: (record) => {
                         const lines = exportedByTicket[record.id] || [];
@@ -1569,20 +1718,20 @@ const WarehousePage = () => {
                         return (
                           <div style={{ padding: '8px 16px', background: '#fafafa', borderRadius: 6 }}>
                             <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#1d39c4' }}>
-                              📦 Danh sách linh kiện đã xuất cho phiếu {record.maPhieu}:
+                              Linh kiện đã xuất cho phiếu {record.maPhieu}:
                             </div>
                             <Table
                               size="small"
                               pagination={false}
-                              rowKey="id"
+                              rowKey="chiTietXuatKhoId"
                               dataSource={lines}
                               columns={[
                                 { title: 'Tên linh kiện', dataIndex: 'tenLinhKien', key: 'tenLinhKien' },
                                 { title: 'Kho xuất', dataIndex: 'tenKho', key: 'tenKho' },
                                 {
                                   title: 'Số lượng',
-                                  dataIndex: 'soLuong',
-                                  key: 'soLuong',
+                                  dataIndex: 'soLuongXuat',
+                                  key: 'soLuongXuat',
                                   render: (val) => <Tag color="blue">{val}</Tag>,
                                 },
                                 {
@@ -1656,6 +1805,9 @@ const WarehousePage = () => {
               ),
               children: (
                 <div>
+                  {serialLoadError && <Alert type="error" showIcon style={{ marginBottom: 16 }}
+                    message={serialLoadError}
+                    action={<Button size="small" onClick={fetchAllSerials}>Thử lại</Button>} />}
                   <Alert
                     message="Quản lý & Định danh từng chiếc linh kiện theo mã Serial"
                     description="Tại đây bạn có thể tìm kiếm, lọc theo kho hoặc tra cứu lai lịch của từng mã Serial: biết rõ nguồn gốc nhập từ nhà cung cấp nào, hiện còn trong kho hay đã xuất lắp ráp cho phiếu sửa chữa của khách hàng."
@@ -1746,282 +1898,27 @@ const WarehousePage = () => {
         onCreated={(id, wasEdit) => {
           fetchMetaCatalogs();
           fetchTonKho();
-          if (id && !wasEdit) handleOpenImportModal(id, 1);
+          if (id && !wasEdit) handleOpenImportModal(id);
         }}
       />
 
-      {/* ======================================================== */}
-      {/* MODAL: LẬP PHIẾU NHẬP KHO (POST /api/phieu-nhap/tao-moi)  */}
-      {/* ======================================================== */}
-      <Modal
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 18 }}>
-            <ImportOutlined style={{ color: '#1677ff' }} />
-            <span>Lập phiếu nhập kho & Tăng tồn kho</span>
-          </div>
-        }
+      <ImportReceiptModal
         open={isImportModalVisible}
-        onOk={() => form.submit()}
-        confirmLoading={submittingImport}
+        form={form}
+        submitting={submittingImport}
         onCancel={() => setIsImportModalVisible(false)}
-        width={760}
-        okText="Hoàn tất nhập kho"
-        cancelText="Hủy"
-        destroyOnClose
-      >
-        <div style={{ marginTop: '16px' }}>
-          <Form form={form} layout="vertical" onFinish={handleImportSubmit}>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  label="Nhà cung cấp"
-                  name="nhaCungCapId"
-                  rules={[{ required: true, message: 'Vui lòng chọn nhà cung cấp!' }]}
-                >
-                  <Select placeholder="Chọn nhà cung cấp..." showSearch optionFilterProp="children">
-                    {nccList.map((ncc) => (
-                      <Option key={ncc.id} value={ncc.id}>
-                        {ncc.tenNcc} ({ncc.maNcc})
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  label="Kho tiếp nhận"
-                  name="khoId"
-                  rules={[{ required: true, message: 'Vui lòng chọn kho nhập!' }]}
-                >
-                  <Select placeholder="Chọn kho..." showSearch optionFilterProp="children">
-                    {khoList.map((k) => (
-                      <Option key={k.id} value={k.id}>
-                        {k.tenKho} ({k.maKho})
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Ngày nhập hàng" name="ngayNhap" rules={[{ required: true, message: 'Vui lòng chọn ngày nhập' }]}>
-                  <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" allowClear={false} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Số hoá đơn / Chứng từ NCC" name="soChungTuNcc">
-                  <Input placeholder="Ví dụ: HD-2026/892" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Divider orientation="left" style={{ margin: '12px 0 16px 0', fontSize: '14px', color: '#1677ff' }}>
-              Chi tiết danh sách linh kiện nhập
-            </Divider>
-
-            {/* Form.List cho phép nhập nhiều dòng linh kiện */}
-            <Form.List name="chiTiet">
-              {(fields, { add, remove }) => (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {fields.map(({ key, name, ...restField }) => (
-                    <Card
-                      key={key}
-                      size="small"
-                      style={{ background: '#fafafa', border: '1px dashed #d9d9d9', borderRadius: 8 }}
-                      bodyStyle={{ padding: '12px' }}
-                    >
-                      <Row gutter={12} align="middle">
-                        <Col span={11}>
-                          <Form.Item
-                            {...restField}
-                            label="Linh kiện"
-                            name={[name, 'linhKienId']}
-                            rules={[{ required: true, message: 'Chọn linh kiện!' }]}
-                            style={{ marginBottom: 0 }}
-                          >
-                            <Select
-                              placeholder="Chọn linh kiện..."
-                              showSearch
-                              onChange={loadPartPolicy}
-                              optionFilterProp="children"
-                              filterOption={(input, option) =>
-                                (option?.children || '').toLowerCase().includes(input.toLowerCase())
-                              }
-                            >
-                              {linhKienList.map((item) => (
-                                <Option key={item.id} value={item.id}>
-                                  [{item.maLk}] {item.tenLinhKien}
-                                </Option>
-                              ))}
-                            </Select>
-                          </Form.Item>
-                        </Col>
-                        <Col span={5}>
-                          <Form.Item
-                            {...restField}
-                            label="Số lượng"
-                            name={[name, 'soLuongNhap']}
-                            rules={[{ required: true, message: 'Nhập SL!' }]}
-                            style={{ marginBottom: 0 }}
-                          >
-                            <InputNumber min={1} style={{ width: '100%' }} placeholder="SL" />
-                          </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                          <Form.Item
-                            {...restField}
-                            label="Đơn giá nhập (đ)"
-                            name={[name, 'donGiaNhap']}
-                            rules={[{ required: true, message: 'Nhập đơn giá!' }]}
-                            style={{ marginBottom: 0 }}
-                          >
-                            <InputNumber
-                              min={0}
-                              style={{ width: '100%' }}
-                              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                              parser={(value) => value.replace(/\$\s?|(,*)/g, '')}
-                              placeholder="Giá vốn"
-                            />
-                          </Form.Item>
-                        </Col>
-                        <Col span={2} style={{ textAlign: 'center', paddingTop: 24 }}>
-                          {fields.length > 1 && (
-                            <Button
-                              type="text"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={() => remove(name)}
-                              title="Xóa dòng"
-                            />
-                          )}
-                        </Col>
-                      </Row>
-
-                      {/* Quản lý danh sách số Serial cho từng mặt hàng */}
-                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          <Space size={6}>
-                            <BarcodeOutlined style={{ color: '#1677ff', fontSize: 15 }} />
-                            <span style={{ fontWeight: 600, fontSize: '13px' }}>
-                              Số Serial / Định danh từng chiếc:
-                            </span>
-                          </Space>
-                          <Button
-                            type="link"
-                            size="small"
-                            icon={<SnippetsOutlined />}
-                            onClick={() => handleOpenPasteSerialModal(name)}
-                            style={{ padding: 0, fontWeight: 500 }}
-                          >
-                            📋 Dán danh sách từ NCC
-                          </Button>
-                        </div>
-
-                        <Form.Item
-                          {...restField}
-                          name={[name, 'danhSachSerial']}
-                          style={{ marginBottom: 4 }}
-                        >
-                          <Select
-                            mode="tags"
-                            tokenSeparators={[',', '\n', '\t', ' ']}
-                            placeholder="Quét mã vạch hoặc nhập serial rồi nhấn Enter (hoặc bấm 'Dán danh sách từ NCC')..."
-                            style={{ width: '100%' }}
-                            notFoundContent={null}
-                          />
-                        </Form.Item>
-
-                        {/* Chỉ báo trạng thái khớp số lượng */}
-                        <Form.Item shouldUpdate noStyle>
-                          {() => {
-                            const currentQty = form.getFieldValue(['chiTiet', name, 'soLuongNhap']) || 0;
-                            const currentPartId = form.getFieldValue(['chiTiet', name, 'linhKienId']);
-                            const policy = partPolicies[currentPartId];
-                            const serials = form.getFieldValue(['chiTiet', name, 'danhSachSerial']) || [];
-                            if (serials.length === 0) {
-                              return (
-                                <Text type={policy === true ? 'danger' : 'secondary'} style={{ fontSize: '11px' }}>
-                                  {policy === true
-                                    ? `Mẫu này bắt buộc nhập đủ ${currentQty} serial trước khi xác nhận.`
-                                    : policy === false
-                                      ? 'Mẫu này quản lý theo số lượng, không cần serial.'
-                                      : 'Chọn mẫu linh kiện để xem chính sách serial.'}
-                                </Text>
-                              );
-                            }
-                            const isMatched = serials.length === Number(currentQty);
-                            return (
-                              <Space size={8} style={{ fontSize: '12px' }}>
-                                <Tag color={isMatched ? 'success' : 'warning'} style={{ margin: 0, fontWeight: 500 }}>
-                                  {isMatched
-                                    ? `✓ Đã khớp: ${serials.length}/${currentQty} serial`
-                                    : `⚠ Lệch số lượng: có ${serials.length}/${currentQty} serial (cần khớp đúng)`}
-                                </Tag>
-                                {!isMatched && (
-                                  <Button
-                                    type="link"
-                                    size="small"
-                                    style={{ padding: 0, fontSize: '11px' }}
-                                    onClick={() =>
-                                      form.setFieldValue(['chiTiet', name, 'soLuongNhap'], serials.length)
-                                    }
-                                  >
-                                    👉 Tự động chỉnh SL nhập = {serials.length}
-                                  </Button>
-                                )}
-                              </Space>
-                            );
-                          }}
-                        </Form.Item>
-                      </div>
-                    </Card>
-                  ))}
-
-                  <Button
-                    type="dashed"
-                    onClick={() => add({ linhKienId: linhKienList[0]?.id, soLuongNhap: 10, donGiaNhap: 0 })}
-                    block
-                    icon={<PlusOutlined />}
-                    style={{ marginTop: 4 }}
-                  >
-                    Thêm dòng linh kiện
-                  </Button>
-                </div>
-              )}
-            </Form.List>
-
-            <Divider style={{ margin: '16px 0 12px 0' }} />
-
-            <Row gutter={16} align="middle">
-              <Col span={12}>
-                <Form.Item
-                  label="Tùy chọn ghi nhận kho"
-                  name="xacNhanNgay"
-                  valuePropName="checked"
-                  style={{ marginBottom: 8 }}
-                >
-                  <Switch
-                    checkedChildren="Nhập kho ngay (Cộng tồn)"
-                    unCheckedChildren="Lưu bản nháp"
-                    defaultChecked
-                  />
-                </Form.Item>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  💡 Khi bật "Nhập kho ngay", hệ thống sẽ lập tức tăng số lượng tồn của các linh kiện tương ứng.
-                </Text>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Ghi chú phiếu nhập" name="ghiChu" style={{ marginBottom: 8 }}>
-                  <Input.TextArea rows={2} placeholder="Ghi chú nội dung lô hàng, quy cách đóng gói..." />
-                </Form.Item>
-              </Col>
-            </Row>
-          </Form>
-        </div>
-      </Modal>
-
+        onSubmit={submitImport}
+        onFinish={handleImportSubmit}
+        khoList={khoList}
+        nccList={nccList}
+        linhKienList={linhKienList}
+        partPolicies={partPolicies}
+        partPolicyLoadState={partPolicyLoadState}
+        catalogLoadError={catalogLoadError}
+        loadPartPolicy={loadPartPolicy}
+        onOpenPasteSerialModal={handleOpenPasteSerialModal}
+        onReloadCatalogs={fetchMetaCatalogs}
+      />
       {/* ======================================================== */}
       {/* MODAL: DÁN NHANH DANH SÁCH SERIAL TỪ NHÀ CUNG CẤP        */}
       {/* ======================================================== */}
@@ -2029,7 +1926,7 @@ const WarehousePage = () => {
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1677ff', fontSize: 16 }}>
             <SnippetsOutlined />
-            <span>Dán danh sách mã Serial từ Nhà Cung Cấp</span>
+            <span>Dán danh sách serial</span>
           </div>
         }
         open={isPasteSerialModalVisible}
@@ -2044,8 +1941,8 @@ const WarehousePage = () => {
       >
         <div style={{ marginTop: 8 }}>
           <Alert
-            message="Hướng dẫn dán nhanh mã Serial"
-            description="Copy danh sách số serial từ file Excel/Hóa đơn của NCC và dán vào đây. Mỗi dòng một mã serial (hoặc cách nhau bằng dấu phẩy). Hệ thống sẽ tự động chuẩn hóa chữ hoa, lọc bỏ khoảng trắng thừa và mã trùng lặp."
+            message="Dán serial từ chứng từ hoặc bảng kê của nhà cung cấp"
+            description="Mỗi dòng một mã, hoặc phân tách bằng dấu phẩy. Hệ thống chuẩn hóa chữ hoa và bỏ mã trùng. Số lượng thực nhận trên phiếu sẽ không tự thay đổi để bạn đối chiếu."
             type="info"
             showIcon
             style={{ marginBottom: 12 }}
@@ -2054,28 +1951,11 @@ const WarehousePage = () => {
             rows={8}
             value={pasteSerialText}
             onChange={(e) => setPasteSerialText(e.target.value)}
-            placeholder="Ví dụ:&#10;KVR-8G-2610-09881&#10;KVR-8G-2610-09882&#10;KVR-8G-2610-09883"
+            placeholder={'Mỗi dòng một serial\nCó thể dán từ bảng kê của nhà cung cấp'}
             style={{ fontFamily: 'monospace', fontSize: '13px' }}
           />
-          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#8c8c8c', fontSize: '12px' }}>
-            <span>
-              Số mã nhận diện tạm tính: <b>
-                {pasteSerialText.split(/[\r\n,;\t]+/).map((s) => s.trim()).filter(Boolean).length}
-              </b> mã
-            </span>
-            <Button
-              type="link"
-              size="small"
-              onClick={() => {
-                const rnd = Math.floor(1000 + Math.random() * 9000);
-                setPasteSerialText(
-                  `SN-${rnd}-001\nSN-${rnd}-002\nSN-${rnd}-003`
-                );
-              }}
-              style={{ padding: 0 }}
-            >
-              🎲 Chèn mã mẫu demo
-            </Button>
+          <div style={{ marginTop: 8, color: '#64748b', fontSize: '12px' }}>
+            Đã nhận diện <b>{pasteSerialText.split(/[\r\n,;\t]+/).map((s) => s.trim()).filter(Boolean).length}</b> mã trước khi lọc trùng.
           </div>
         </div>
       </Modal>
@@ -2117,9 +1997,7 @@ const WarehousePage = () => {
               </Col>
               <Col span={12}>
                 <Text type="secondary">Trạng thái: </Text>
-                <Tag color={selectedPhieuDetail.phieu.trangThai === 'DA_NHAP_KHO' ? 'success' : 'warning'}>
-                  {selectedPhieuDetail.phieu.trangThai === 'DA_NHAP_KHO' ? 'Đã nhập kho' : selectedPhieuDetail.phieu.trangThai}
-                </Tag>
+                <StatusTag value={selectedPhieuDetail.phieu.trangThai} />
               </Col>
               <Col span={12}>
                 <Text type="secondary">Số chứng từ: </Text>
@@ -2235,7 +2113,7 @@ const WarehousePage = () => {
                 />
               </Form.Item>
               <Text type="secondary" style={{ fontSize: '12px' }}>
-                💡 Khi số lượng tồn thực tế nhỏ hơn hoặc bằng số này, hệ thống sẽ đưa linh kiện vào danh sách Cảnh báo thiếu hàng.
+                Hệ thống cảnh báo khi hết hàng hoặc số lượng tồn thấp hơn ngưỡng này. Bằng ngưỡng là an toàn.
               </Text>
             </Form>
           </div>
@@ -2356,9 +2234,10 @@ const WarehousePage = () => {
                   disabled={!exportLinhKienId}
                   options={exportRequests.filter((r) => r.trangThai === 'DA_DUYET')
                     .flatMap((r) => (r.chiTiet || [])
-                      .filter((line) => line.linhKienId === exportLinhKienId && line.soLuongDuyet > 0)
+                      .filter((line) => line.linhKienId === exportLinhKienId
+                        && line.soLuongDuyet > (line.soLuongDaXuat || 0))
                       .map((line) => ({ value: line.id,
-                        label: `Yêu cầu #${r.id} — đã duyệt ${line.soLuongDuyet} chiếc` })))}
+                        label: `Yêu cầu #${r.id} — còn cần xuất ${line.soLuongDuyet - (line.soLuongDaXuat || 0)} chiếc` })))}
                 />
                 {exportRequests.filter((r) => r.trangThai === 'CHO_DUYET').map((r) => (
                   <Alert key={r.id} type="warning" style={{ marginTop: 8 }}
@@ -2369,6 +2248,14 @@ const WarehousePage = () => {
                 {exportRequests.length === 0 && <Text type="secondary" style={{ fontSize: 12 }}>
                   Kỹ thuật viên cần tạo yêu cầu vật tư trên màn hình kỹ thuật trước khi kho xuất.
                 </Text>}
+                {exportLinhKienId && exportRequests.length > 0
+                  && !exportRequests.some((r) => r.trangThai === 'CHO_DUYET')
+                  && !exportRequests.some((r) => r.trangThai === 'DA_DUYET'
+                    && (r.chiTiet || []).some((line) => line.linhKienId === exportLinhKienId
+                      && line.soLuongDuyet > (line.soLuongDaXuat || 0)))
+                  && <Text type="secondary" style={{ fontSize: 12 }}>
+                    Không còn số lượng đã duyệt cần xuất cho linh kiện này.
+                  </Text>}
               </div>
 
               {/* 3. Lựa chọn Serial hoặc Số lượng */}
@@ -2408,7 +2295,7 @@ const WarehousePage = () => {
                           </span>
                         ) : (
                           <span style={{ color: '#fa8c16' }}>
-                            ⚠ Bắt buộc chọn ít nhất một mã serial để tiếp tục.
+                            Bắt buộc chọn ít nhất một mã serial để tiếp tục.
                           </span>
                         )}
                       </div>
@@ -2497,23 +2384,6 @@ const WarehousePage = () => {
               Tra cứu
             </Button>
           </Space.Compact>
-
-          {/* Gợi ý mã mẫu test nhanh */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: '12px', color: '#8c8c8c' }}>
-            <span>💡 Mã serial gợi ý:</span>
-            {['SN-RAM-8G-091', 'SN-SSD-512-NVME', 'KVR-8G-2610-09881'].map((m) => (
-              <Tag
-                key={m}
-                style={{ cursor: 'pointer', fontFamily: 'monospace', margin: 0 }}
-                onClick={() => {
-                  setQuickSerialInput(m);
-                  handleQuickSearchSerial(m);
-                }}
-              >
-                {m}
-              </Tag>
-            ))}
-          </div>
 
           {quickSerialError && (
             <Alert

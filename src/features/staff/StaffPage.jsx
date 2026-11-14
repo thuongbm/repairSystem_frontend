@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Card, Row, Col, Typography, Table, Select, Switch, Avatar, Space, Tag, 
-  Button, Collapse, Input, Modal, Form, message, Tooltip
+  Button, Collapse, Input, Modal, Form, Alert, message, Tooltip
 } from 'antd';
 import { 
   CheckOutlined, 
@@ -14,6 +14,7 @@ import {
   UserOutlined
 } from '@ant-design/icons';
 import { api } from '../../services/api';
+import { useAuth } from '../../context/useAuth';
 
 const { Title, Text } = Typography;
 
@@ -35,18 +36,18 @@ const getInitials = (name) => {
 };
 
 // Định dạng thời gian hoạt động / đăng nhập cuối
-const formatActivity = (lastLogin, updatedAt) => {
-  const targetDate = lastLogin || updatedAt;
-  if (!targetDate) return 'Chưa đăng nhập';
+const formatActivity = (lastLogin) => {
+  if (!lastLogin) return 'Chưa đăng nhập';
   try {
-    const d = new Date(targetDate);
+    const d = new Date(lastLogin);
+    if (Number.isNaN(d.getTime())) return 'Chưa rõ';
     const now = new Date();
     const diffMs = now - d;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMins < 5) return 'Đang hoạt động';
+    if (diffMins < 5) return 'Vừa đăng nhập';
     if (diffMins < 60) return `${diffMins} phút trước`;
     if (diffHours < 24) return `${diffHours} giờ trước`;
     if (diffDays < 7) return `${diffDays} ngày trước`;
@@ -57,8 +58,10 @@ const formatActivity = (lastLogin, updatedAt) => {
 };
 
 const StaffPage = () => {
+  const { user } = useAuth();
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [searchText, setSearchText] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,9 +85,10 @@ const StaffPage = () => {
       } else {
         setStaffList([]);
       }
+      setLoadError('');
     } catch (err) {
       console.error('Lỗi khi tải danh sách nhân sự:', err);
-      message.error(err.response?.data?.message || 'Không thể tải danh sách nhân sự từ máy chủ.');
+      setLoadError('Không thể tải danh sách nhân sự. Dữ liệu đang hiển thị có thể đã cũ.');
     } finally {
       setLoading(false);
     }
@@ -97,11 +101,12 @@ const StaffPage = () => {
         if (!active) return;
         const data = res?.data || res || [];
         setStaffList(Array.isArray(data) ? data : []);
+        setLoadError('');
       })
       .catch((err) => {
         if (!active) return;
         console.error('Lỗi khi tải danh sách nhân sự:', err);
-        message.error(err.response?.data?.message || 'Không thể tải danh sách nhân sự từ máy chủ.');
+        setLoadError('Không thể tải danh sách nhân sự. Hãy thử lại.');
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -268,10 +273,10 @@ const StaffPage = () => {
       key: 'activity',
       width: 140,
       render: (_, record) => {
-        const activityText = formatActivity(record.dangNhapCuoi, record.updatedAt);
-        const isActiveNow = activityText === 'Đang hoạt động';
+        const activityText = formatActivity(record.dangNhapCuoi);
+        const isRecent = activityText === 'Vừa đăng nhập';
         return (
-          <Text style={{ color: isActiveNow ? '#10b981' : '#6b7280', fontSize: '13px' }}>
+          <Text style={{ color: isRecent ? '#10b981' : '#6b7280', fontSize: '13px' }}>
             {activityText}
           </Text>
         );
@@ -284,12 +289,15 @@ const StaffPage = () => {
       align: 'center',
       render: (_, record) => {
         const isAccessActive = record.hoatDong !== undefined ? record.hoatDong : true;
-        const isSelf = record.tenDangNhap === 'admin';
+        const isSelf = record.taiKhoanId === user?.id;
+        const isPrimaryAdmin = record.tenDangNhap === 'admin';
         return (
-          <Tooltip title={isSelf ? 'Không thể khóa tài khoản Admin chính' : (isAccessActive ? 'Tài khoản đang hoạt động' : 'Tài khoản đang bị khóa')}>
+          <Tooltip title={isSelf ? 'Không thể khóa tài khoản đang đăng nhập'
+            : isPrimaryAdmin ? 'Không thể khóa tài khoản quản trị chính'
+              : (isAccessActive ? 'Tài khoản đang hoạt động' : 'Tài khoản đang bị khóa')}>
             <Switch
               checked={isAccessActive}
-              disabled={isSelf || togglingId === record.id}
+              disabled={isSelf || isPrimaryAdmin || togglingId === record.id}
               loading={togglingId === record.id}
               onChange={(checked) => handleToggleAccess(record, checked)}
             />
@@ -312,7 +320,7 @@ const StaffPage = () => {
                   <Tag color="blue">{filteredStaff.length} tài khoản</Tag>
                 </div>
                 <Text type="secondary" style={{ fontSize: '13px' }}>
-                  Danh sách tài khoản nhân viên được tải trực tiếp từ cơ sở dữ liệu hệ thống.
+                  Theo dõi nhân sự, vai trò và quyền truy cập tài khoản.
                 </Text>
               </div>
 
@@ -360,6 +368,9 @@ const StaffPage = () => {
             </div>
 
             {/* Bảng nhân sự */}
+            {loadError && <Alert type="warning" showIcon message={loadError}
+              action={<Button size="small" onClick={fetchStaffData}>Thử lại</Button>}
+              style={{ marginBottom: 12 }} />}
             <Table
               columns={columns}
               dataSource={filteredStaff}
@@ -367,7 +378,7 @@ const StaffPage = () => {
               loading={loading}
               pagination={{ pageSize: 6, showTotal: (total) => `Tổng cộng ${total} nhân viên` }}
               rowClassName={(record, index) => (index % 2 === 0 ? 'table-row-light' : 'table-row-dark')}
-              locale={{ emptyText: loading ? 'Đang tải dữ liệu...' : 'Không có nhân viên nào phù hợp' }}
+              locale={{ emptyText: loadError ? 'Không tải được dữ liệu nhân sự' : 'Không có nhân viên nào phù hợp' }}
             />
           </Card>
         </Col>

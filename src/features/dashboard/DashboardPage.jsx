@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, Row, Space, Statistic, Table, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
+import StatusTag from '../../components/StatusTag';
 
 const { Title } = Typography;
-const statusLabels = {
-  TIEP_NHAN: 'Tiếp nhận', DANG_SUA: 'Đang sửa', CHO_LINH_KIEN: 'Chờ linh kiện',
-  HOAN_THANH: 'Hoàn thành', DA_TRA: 'Đã trả', HUY: 'Đã hủy',
-};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -19,6 +16,7 @@ export default function DashboardPage() {
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [failed, setFailed] = useState({ tickets: false, claims: false, stock: false });
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -31,6 +29,9 @@ export default function DashboardPage() {
         if (results[1].status === 'fulfilled') setClaims(results[1].value.data || []);
         if (results[2].status === 'fulfilled' && results[2].value)
           setLowStock(results[2].value.data || []);
+        setFailed({ tickets: results[0].status === 'rejected',
+          claims: results[1].status === 'rejected',
+          stock: results[2].status === 'rejected' });
         setError(results.some((result) => result.status === 'rejected')
           ? 'Một số số liệu chưa tải được. Hãy thử làm mới.' : '');
         setLoading(false);
@@ -56,22 +57,22 @@ export default function DashboardPage() {
     </div>
     {error && <Alert type="warning" showIcon message={error} />}
     <Row gutter={[16, 16]}>
-      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Phiếu chưa kết thúc" value={openCount} /></Card></Col>
-      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Sẵn sàng bàn giao" value={readyCount} /></Card></Col>
-      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Bảo hành đang xử lý" value={warrantyCount} /></Card></Col>
+      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Phiếu chưa kết thúc" value={failed.tickets ? '—' : openCount} /></Card></Col>
+      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Sẵn sàng bàn giao" value={failed.tickets ? '—' : readyCount} /></Card></Col>
+      <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Bảo hành đang xử lý" value={failed.claims ? '—' : warrantyCount} /></Card></Col>
       {['admin', 'warehouse'].includes(user?.role) &&
-        <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Cảnh báo tồn kho" value={lowStock.length} /></Card></Col>}
+        <Col xs={24} sm={12} lg={6}><Card loading={loading}><Statistic title="Cảnh báo tồn kho" value={failed.stock ? '—' : lowStock.length} /></Card></Col>}
     </Row>
     <Space wrap>{targets.filter((x) => x.role.includes(user?.role)).map((x) =>
       <Button key={x.path} onClick={() => navigate(x.path)}>{x.label}</Button>)}</Space>
     <Card title="Phiếu gần đây">
       <Table dataSource={tickets.slice(0, 10)} rowKey="id" pagination={false} loading={loading}
-        locale={{ emptyText: 'Chưa có phiếu sửa chữa' }} scroll={{ x: 700 }} columns={[
+        locale={{ emptyText: failed.tickets ? 'Không tải được phiếu sửa chữa' : 'Chưa có phiếu sửa chữa' }} scroll={{ x: 700 }} columns={[
         { title: 'Mã', dataIndex: 'maPhieu' },
         { title: 'Thiết bị', dataIndex: 'tenThietBi' },
         { title: 'Khách hàng', dataIndex: 'tenKhachHang', render: (v) => v || '—' },
         { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => v ? dayjs(v).format('DD/MM/YYYY') : '—' },
-        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{statusLabels[v] || v}</Tag> },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
       ]} />
     </Card>
   </Space>;

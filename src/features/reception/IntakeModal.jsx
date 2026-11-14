@@ -61,6 +61,8 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
   const [technicians, setTechnicians] = useState([]);
   const [receptionists, setReceptionists] = useState([]);
   const serialValue = Form.useWatch('serial', form);
+  const depositValue = Form.useWatch('deposit', form);
+  const depositMethod = Form.useWatch('depositMethod', form);
 
   const checklistFields = [
     { name: 'manHinh', label: 'Màn hình', options: [
@@ -196,7 +198,9 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         try {
           await api.ghiGiaoDichV3(bePhieu.id, {
             hoaDonId: null, loai: 'THU', soTien: Number(values.deposit),
-            phuongThuc: 'TIEN_MAT', ghiChu: 'Cọc khi tiếp nhận'
+            phuongThuc: values.depositMethod,
+            maThamChieu: values.depositReference?.trim() || null,
+            ghiChu: 'Cọc khi tiếp nhận'
           });
           recordedDeposit = Number(values.deposit);
         } catch (depositError) {
@@ -235,6 +239,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
         status: 'Mới tiếp nhận',
         estimatedCost: values.estimatedCost || 0,
         deposit: recordedDeposit,
+        depositMethod: recordedDeposit > 0 ? values.depositMethod : null,
         paymentStatus: recordedDeposit > 0 ? `Đã cọc ${recordedDeposit.toLocaleString('vi-VN')} ₫` : 'Chưa thanh toán',
         items: [],
       };
@@ -361,7 +366,8 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               <div><strong>Thời gian nhận:</strong> {previewTicket.receiveDate}</div>
               <div><strong>Hẹn trả:</strong> {previewTicket.appointmentDate}</div>
               <div><strong>Kỹ thuật viên:</strong> {previewTicket.technician}</div>
-              <div><strong>Đặt cọc:</strong> {previewTicket.deposit.toLocaleString('vi-VN')} ₫</div>
+              <div><strong>Đặt cọc:</strong> {previewTicket.deposit.toLocaleString('vi-VN')} ₫
+                {previewTicket.depositMethod ? ` (${({ TIEN_MAT: 'Tiền mặt', CHUYEN_KHOAN: 'Chuyển khoản', THE: 'Thẻ', VI_DIEN_TU: 'Ví điện tử' })[previewTicket.depositMethod]})` : ''}</div>
             </Col>
           </Row>
 
@@ -403,9 +409,7 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
           form={form}
           layout="vertical"
           initialValues={{
-            deviceType: 'Laptop',
             priority: 'Bình thường',
-            deposit: 0,
             accessories: [],
           }}
           style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '8px' }}
@@ -500,8 +504,8 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
 
           <Row gutter={16}>
             <Col xs={24} md={8}>
-              <Form.Item name="passcode" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Mật khẩu máy</span>}>
-                <Input placeholder="123456 hoặc Không có" />
+              <Form.Item name="passcode" label={<span style={{ fontWeight: 500, fontSize: '13px' }}>Mật khẩu mở máy (nếu khách cung cấp)</span>}>
+                <Input.Password autoComplete="off" placeholder="Nhập khi cần kiểm tra thiết bị" />
               </Form.Item>
             </Col>
             <Col xs={24} md={16}>
@@ -614,6 +618,25 @@ const IntakeModal = ({ visible, onCancel, onSubmitTicket }) => {
               </Form.Item>
             </Col>
           </Row>
+          {Number(depositValue) > 0 && <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item name="depositMethod" label="Phương thức nhận cọc"
+                rules={[{ required: true, message: 'Chọn phương thức nhận cọc.' }]}>
+                <Select placeholder="Chọn phương thức thực tế" options={[
+                  { value: 'TIEN_MAT', label: 'Tiền mặt' },
+                  { value: 'CHUYEN_KHOAN', label: 'Chuyển khoản' },
+                  { value: 'THE', label: 'Thẻ' },
+                  { value: 'VI_DIEN_TU', label: 'Ví điện tử' },
+                ]} />
+              </Form.Item>
+            </Col>
+            {depositMethod && depositMethod !== 'TIEN_MAT' && <Col xs={24} md={12}>
+              <Form.Item name="depositReference" label="Mã giao dịch / tham chiếu"
+                rules={[{ required: true, whitespace: true, message: 'Nhập mã giao dịch để đối chiếu tiền cọc.' }]}>
+                <Input maxLength={100} placeholder="Mã trên biên lai hoặc ứng dụng thanh toán" />
+              </Form.Item>
+            </Col>}
+          </Row>}
         </Form>
       )}
     </Modal>

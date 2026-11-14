@@ -3,6 +3,7 @@ import { Empty, Input, Popover, Spin } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
+import { statusLabel } from '../../utils/status';
 
 export default function GlobalSearch() {
   const { user } = useAuth();
@@ -76,7 +77,7 @@ export default function GlobalSearch() {
             <span className="header-result-main">{isWarehouse ? row.tenLinhKien : row.maPhieu}</span>
             <span className="header-result-detail">{isWarehouse
               ? `${row.maLk} · ${row.tenKho} · Tồn ${row.soLuongTon}`
-              : `${row.tenThietBi || 'Thiết bị'} · ${row.trangThai || 'Chưa rõ trạng thái'}`}</span>
+              : `${row.tenThietBi || 'Thiết bị'} · ${row.trangThai ? statusLabel(row.trangThai) : 'Chưa rõ trạng thái'}`}</span>
           </button>)}</div>
           : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không tìm thấy kết quả" />}
     {results.length === 8 && <div className="header-popover-hint">Hiển thị 8 kết quả đầu tiên. Hãy nhập từ khóa cụ thể hơn.</div>}

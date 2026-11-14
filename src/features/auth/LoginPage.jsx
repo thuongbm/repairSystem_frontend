@@ -111,7 +111,7 @@ const LoginPage = () => {
       setActiveTab('login');
       loginForm.setFieldsValue({
         username: values.reg_username.trim(),
-        password: values.reg_password,
+        password: '',
       });
       registerForm.resetFields();
     } catch (err) {
@@ -181,7 +181,7 @@ const LoginPage = () => {
               <span style={{ fontSize: '26px' }}>🔧</span>
             </div>
             <Title level={3} style={{ margin: 0, fontWeight: 700 }}>
-              TechFix System
+              TechFix
             </Title>
             <Text type="secondary" style={{ fontSize: '13px' }}>
               Trung tâm Dịch vụ & Quản lý sửa chữa thiết bị

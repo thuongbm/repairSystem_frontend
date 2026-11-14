@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Table, Tag, message } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Table, message } from 'antd';
 import { api } from '../../services/api';
+import StatusTag from '../../components/StatusTag';
 
-const statusColor = { CHO_DUYET: 'orange', DA_DUYET: 'green', TU_CHOI: 'red', HUY: 'default' };
 
 export default function VatTuTab() {
   const [form] = Form.useForm();
@@ -12,32 +12,33 @@ export default function VatTuTab() {
   const [ticketId, setTicketId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [catalogError, setCatalogError] = useState('');
+  const [requestError, setRequestError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([api.getPhieuSuaChua(), api.getLinhKien()])
-      .then(([ticketsRes, partsRes]) => {
-        if (!active) return;
-        setTickets((ticketsRes.data || []).filter((x) =>
-          ['DANG_SUA', 'CHO_LINH_KIEN'].includes(x.trangThai)));
-        setParts(partsRes.data || []);
-      })
-      .catch((error) => message.error(error.response?.data?.message || 'Không tải được phiếu hoặc danh mục linh kiện.'))
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+  const loadCatalogs = useCallback(async () => {
+    setLoading(true);
+    const [ticketsRes, partsRes] = await Promise.allSettled([api.getPhieuSuaChua(), api.getLinhKien()]);
+    if (ticketsRes.status === 'fulfilled') setTickets((ticketsRes.value.data || []).filter((x) =>
+      ['DANG_SUA', 'CHO_LINH_KIEN'].includes(x.trangThai)));
+    if (partsRes.status === 'fulfilled') setParts(partsRes.value.data || []);
+    setCatalogError(ticketsRes.status === 'rejected' || partsRes.status === 'rejected'
+      ? 'Không tải đủ phiếu sửa chữa và danh mục linh kiện. Hãy thử lại.' : '');
+    setLoading(false);
   }, []);
+  useEffect(() => { Promise.resolve().then(loadCatalogs); }, [loadCatalogs]);
 
   useEffect(() => {
     if (!ticketId) return;
     let active = true;
     api.getYeuCauVatTuV3(ticketId)
-      .then((result) => { if (active) setRequests(result.data || []); })
-      .catch((error) => message.error(error.response?.data?.message || 'Không tải được yêu cầu vật tư.'));
+      .then((result) => { if (active) { setRequests(result.data || []); setRequestError(''); } })
+      .catch(() => { if (active) setRequestError('Không cập nhật được yêu cầu vật tư của phiếu. Hãy chọn lại phiếu để thử lại.'); });
     return () => { active = false; };
   }, [ticketId]);
 
   const submit = async (values) => {
     if (!ticketId) { message.warning('Chọn phiếu sửa chữa.'); return; }
+    if (catalogError || requestError) { message.error('Cần tải lại dữ liệu vật tư trước khi gửi yêu cầu.'); return; }
     setSaving(true);
     try {
       await api.taoYeuCauVatTuV3(ticketId, {
@@ -46,11 +47,17 @@ export default function VatTuTab() {
       });
       message.success('Đã gửi yêu cầu vật tư đến kho.');
       form.resetFields();
-      const result = await api.getYeuCauVatTuV3(ticketId);
-      setRequests(result.data || []);
     } catch (error) {
       message.error(error.response?.data?.message || 'Không tạo được yêu cầu vật tư.');
-    } finally { setSaving(false); }
+      setSaving(false);
+      return;
+    }
+    try {
+      const result = await api.getYeuCauVatTuV3(ticketId);
+      setRequests(result.data || []);
+      setRequestError('');
+    } catch { setRequestError('Đã gửi yêu cầu, nhưng chưa tải được danh sách mới. Hãy chọn lại phiếu để thử lại.'); }
+    finally { setSaving(false); }
   };
 
   const rows = requests.flatMap((req) => (req.chiTiet || []).map((line) => ({
@@ -62,12 +69,15 @@ export default function VatTuTab() {
 
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
     <Alert type="info" showIcon
-      message="Yêu cầu vật tư thật"
-      description="Chọn phiếu đang sửa và mẫu linh kiện đã có. Thủ kho duyệt số lượng trước khi xuất." />
+      message="Yêu cầu vật tư"
+      description="Chọn phiếu đang sửa và linh kiện cần dùng. Thủ kho duyệt số lượng trước khi xuất." />
+    {catalogError && <Alert type="error" showIcon message={catalogError}
+      action={<Button size="small" onClick={loadCatalogs}>Thử lại</Button>} />}
+    {requestError && <Alert type="error" showIcon message={requestError} />}
     <Card title="Tạo yêu cầu linh kiện" loading={loading}>
       <Select style={{ width: '100%', marginBottom: 16 }} showSearch optionFilterProp="label"
         placeholder="Chọn phiếu sửa chữa đang làm" value={ticketId}
-        onChange={(id) => { setRequests([]); setTicketId(id); }}
+        onChange={(id) => { setRequests([]); setRequestError(''); setTicketId(id); }}
         options={tickets.map((t) => ({ value: t.id,
           label: `${t.maPhieu} — ${t.tenThietBi} — ${t.tenKhachHang}` }))} />
       <Form form={form} layout="vertical" onFinish={submit} initialValues={{ soLuong: 1 }}>
@@ -79,16 +89,18 @@ export default function VatTuTab() {
           <InputNumber min={1} max={100000} style={{ width: 160 }} />
         </Form.Item>
         <Form.Item name="ghiChu" label="Lý do / ghi chú"><Input.TextArea rows={2} maxLength={500} /></Form.Item>
-        <Button type="primary" htmlType="submit" disabled={!ticketId} loading={saving}>Gửi yêu cầu</Button>
+        <Button type="primary" htmlType="submit" disabled={!ticketId || !!catalogError || !!requestError}
+          loading={saving}>Gửi yêu cầu</Button>
       </Form>
     </Card>
     <Card title="Yêu cầu của phiếu đã chọn">
-      <Table dataSource={rows} rowKey="key" pagination={{ pageSize: 8 }} columns={[
+      <Table dataSource={requestError ? [] : rows} rowKey="key" pagination={{ pageSize: 8 }}
+        locale={{ emptyText: requestError ? 'Chưa tải được yêu cầu vật tư' : 'Chưa có yêu cầu vật tư' }} columns={[
         { title: 'Yêu cầu', dataIndex: 'requestId', render: (v) => `#${v}` },
         { title: 'Linh kiện', dataIndex: 'part' },
         { title: 'Số lượng', dataIndex: 'requested' },
         { title: 'Đã duyệt', dataIndex: 'approved', render: (v) => v ?? '—' },
-        { title: 'Trạng thái', dataIndex: 'status', render: (v) => <Tag color={statusColor[v]}>{v}</Tag> },
+        { title: 'Trạng thái', dataIndex: 'status', render: (v) => <StatusTag value={v} /> },
       ]} />
     </Card>
   </Space>;

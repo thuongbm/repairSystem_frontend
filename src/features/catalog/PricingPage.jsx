@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Button, Form, Input, InputNumber, Modal, Popconfirm, Space, Table, Typography, message } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Button, Form, Input, InputNumber, Modal, Popconfirm, Space, Table, Typography, message } from 'antd';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 
@@ -13,21 +13,21 @@ export default function PricingPage() {
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  const reload = async () => {
-    try { setRows((await api.getDichVu()).data || []); }
-    catch (e) { message.error(errorText(e)); }
-  };
-  useEffect(() => {
-    let active = true;
-    api.getDichVu().then((r) => { if (active) setRows(r.data || []); })
-      .catch((e) => message.error(errorText(e)));
-    return () => { active = false; };
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try { setRows((await api.getDichVu()).data || []); setLoadError(''); }
+    catch { setLoadError('Không tải được danh mục dịch vụ. Dữ liệu đang hiển thị có thể đã cũ.'); }
+    finally { setLoading(false); }
   }, []);
+  useEffect(() => { Promise.resolve().then(reload); }, [reload]);
 
   const edit = (row) => {
     setEditing(row || null);
-    form.setFieldsValue(row || { tenDichVu: '', moTa: '', giaNiemYet: 0 });
+    form.resetFields();
+    if (row) form.setFieldsValue(row);
     setOpen(true);
   };
 
@@ -44,9 +44,11 @@ export default function PricingPage() {
 
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
     <Title level={3}>Danh mục và giá dịch vụ</Title>
+    {loadError && <Alert type="warning" showIcon message={loadError}
+      action={<Button size="small" onClick={reload}>Thử lại</Button>} />}
     <Space><Button onClick={reload}>Làm mới</Button>
       {user?.role === 'admin' && <Button type="primary" onClick={() => edit(null)}>Thêm dịch vụ</Button>}</Space>
-    <Table dataSource={rows} rowKey="id" pagination={{ pageSize: 10 }} columns={[
+    <Table dataSource={rows} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} columns={[
       { title: 'Mã', dataIndex: 'maDv' }, { title: 'Tên dịch vụ', dataIndex: 'tenDichVu' },
       { title: 'Mô tả', dataIndex: 'moTa' },
       { title: 'Giá niêm yết', dataIndex: 'giaNiemYet', render: (v) => `${Number(v).toLocaleString('vi-VN')} ₫` },

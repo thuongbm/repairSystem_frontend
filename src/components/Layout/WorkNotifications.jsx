@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Button, Popover, Spin } from 'antd';
 import { BellOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { api, WORK_CHANGED_EVENT } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 
 const readSeenKeys = (storageKey) => {
@@ -96,14 +96,16 @@ export default function WorkNotifications() {
     const firstLoad = window.setTimeout(load, 0);
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') load();
-    }, 60000);
+    }, 30000);
     const onVisible = () => { if (document.visibilityState === 'visible') load(); };
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener(WORK_CHANGED_EVENT, load);
     return () => {
       requestId.current += 1;
       window.clearTimeout(firstLoad);
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener(WORK_CHANGED_EVENT, load);
     };
   }, [load]);
 

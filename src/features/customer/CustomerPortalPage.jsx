@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Card, Drawer, Input, Popconfirm,
-  Space, Table, Tabs, Tag, Typography, message } from 'antd';
+  Space, Table, Tabs, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { api } from '../../services/api';
 import BookingPanel from './BookingPanel';
+import StatusTag from '../../components/StatusTag';
+import { statusLabel } from '../../utils/status';
 
 const { Title, Text } = Typography;
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
@@ -18,10 +20,12 @@ export default function CustomerPortalPage() {
   const { user, logout } = useAuth();
   const isCustomer = user?.role === 'customer';
   const [services, setServices] = useState([]);
+  const [serviceError, setServiceError] = useState('');
   const [serial, setSerial] = useState('');
   const [serialResult, setSerialResult] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [loadedFor, setLoadedFor] = useState(null);
+  const [mineError, setMineError] = useState('');
   const [warranties, setWarranties] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -31,23 +35,24 @@ export default function CustomerPortalPage() {
   const reloadMine = useCallback(async () => {
     if (!isCustomer) return;
     setLoading(true);
+    setMineError('');
     try {
       const [t, w] = await Promise.allSettled([
         api.getPhieuCuaToi(), api.getBaoHanhCuaToi(),
       ]);
-      setTickets(t.status === 'fulfilled' ? t.value.data || [] : []);
-      setWarranties(w.status === 'fulfilled' ? w.value.data || [] : []);
+      if (t.status === 'fulfilled') setTickets(t.value.data || []);
+      if (w.status === 'fulfilled') setWarranties(w.value.data || []);
       const failed = [t, w].find((x) => x.status === 'rejected');
-      if (failed) message.error(errorText(failed.reason));
+      if (failed) setMineError('Một phần dữ liệu chưa tải được. Danh sách có thể chưa đầy đủ hoặc chưa cập nhật.');
       setLoadedFor(user?.id);
-    } catch (e) { message.error(errorText(e)); }
+    } catch (e) { setMineError(errorText(e)); }
     finally { setLoading(false); }
   }, [isCustomer, user]);
 
   useEffect(() => {
     let active = true;
-    api.getDichVu().then((r) => { if (active) setServices(r.data || []); })
-      .catch(() => message.error('Không tải được danh mục dịch vụ.'));
+    api.getDichVu().then((r) => { if (active) { setServices(r.data || []); setServiceError(''); } })
+      .catch(() => { if (active) setServiceError('Không tải được danh mục dịch vụ. Hãy tải lại trang để thử lại.'); });
     return () => { active = false; };
   }, []);
   useEffect(() => {
@@ -84,6 +89,7 @@ export default function CustomerPortalPage() {
     <Alert type="info" showIcon message="Tiếp nhận tại cửa hàng"
       description="Giá niêm yết để tham khảo. Nhân viên kiểm tra máy và lập báo giá trước khi sửa." />
     <Card title="Giá dịch vụ hiện có">
+      {serviceError && <Alert type="warning" showIcon message={serviceError} style={{ marginBottom: 12 }} />}
       <Table dataSource={services} rowKey="id" pagination={{ pageSize: 10 }} columns={[
         { title: 'Dịch vụ', dataIndex: 'tenDichVu' },
         { title: 'Mô tả', dataIndex: 'moTa' },
@@ -104,12 +110,13 @@ export default function CustomerPortalPage() {
   </Space>;
 
   const repairsTab = <Card title="Phiếu sửa chữa của tôi" extra={<Button onClick={reloadMine} loading={loading}>Làm mới</Button>}>
+    {mineError && <Alert type="warning" showIcon message={mineError} style={{ marginBottom: 12 }} />}
     <Table dataSource={loadedFor === user?.id ? tickets : []} loading={loading} rowKey="id" pagination={{ pageSize: 8 }} columns={[
       { title: 'Mã phiếu', dataIndex: 'maPhieu' },
       { title: 'Thiết bị', dataIndex: 'tenThietBi' },
       { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: dateTime },
       { title: 'Hẹn trả', dataIndex: 'ngayHenTra', render: dateTime },
-      { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+      { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
       { title: '', render: (_, row) => <Button onClick={() => openTicket(row.id)}>Xem tiến độ</Button> },
     ]} />
   </Card>;
@@ -117,11 +124,12 @@ export default function CustomerPortalPage() {
   const appointmentsTab = <BookingPanel />;
 
   const warrantiesTab = <Card title="Bảo hành của tôi">
+    {mineError && <Alert type="warning" showIcon message={mineError} style={{ marginBottom: 12 }} />}
     <Table dataSource={loadedFor === user?.id ? warranties : []} loading={loading} rowKey="id" pagination={{ pageSize: 8 }} columns={[
       { title: 'Mã', dataIndex: 'id', render: (v) => `#${v}` },
       { title: 'Ngày tiếp nhận', dataIndex: 'ngayTiepNhan', render: dateTime },
       { title: 'Lỗi đã báo', dataIndex: 'loiKhachBao' },
-      { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+      { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
       { title: 'Kết quả', dataIndex: 'ketQuaXuLy', render: (v) => v || '—' },
     ]} />
   </Card>;
@@ -154,17 +162,17 @@ export default function CustomerPortalPage() {
       {detail && <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         <Card size="small" title="Tiến độ sửa chữa">
           <Text strong>{detail.phieu.tenThietBi}</Text><br />
-          <Text>Trạng thái: <Tag>{detail.phieu.trangThai}</Tag></Text><br />
+          <Text>Trạng thái: <StatusTag value={detail.phieu.trangThai} /></Text><br />
           <Text>Ngày nhận: {dateTime(detail.phieu.ngayNhan)} · Hẹn trả: {dateTime(detail.phieu.ngayHenTra)}</Text><br />
           <Text>Lỗi đã báo: {detail.phieu.tinhTrangLoi}</Text><br />
           <Text>Kết quả sửa: {detail.phieu.ketQuaSuaChua || 'Đang cập nhật'}</Text>
           <Table size="small" style={{ marginTop: 12 }} dataSource={detail.lichSu || []}
             rowKey={(_, i) => String(i)} pagination={false} columns={[
               { title: 'Thời gian', dataIndex: 'thoiGian', render: dateTime },
-              { title: 'Trạng thái', dataIndex: 'trangThaiMoi', render: (v) => <Tag>{v}</Tag> },
+              { title: 'Trạng thái', dataIndex: 'trangThaiMoi', render: (v) => <StatusTag value={v} /> },
             ]} />
         </Card>
-        {detail.baoGia && <Card size="small" title={`Báo giá #${detail.baoGia.phienBan} — ${detail.baoGia.trangThai}`}>
+        {detail.baoGia && <Card size="small" title={`Báo giá #${detail.baoGia.phienBan} — ${statusLabel(detail.baoGia.trangThai)}`}>
           <Table size="small" dataSource={detail.baoGia.chiTiet || []}
             rowKey={(_, i) => String(i)} pagination={false} columns={[
               { title: 'Hạng mục', dataIndex: 'tenHangMuc' },
