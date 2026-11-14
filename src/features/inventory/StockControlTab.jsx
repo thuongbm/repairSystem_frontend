@@ -3,6 +3,8 @@ import { Alert, Button, Form, Input, InputNumber, Modal, Select, Space,
   Table, Tabs, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
+import StatusTag from '../../components/StatusTag';
+import { dispositionLabel, statusLabel } from '../../utils/status';
 import { useAuth } from '../../context/useAuth';
 
 const { Text } = Typography;
@@ -39,6 +41,9 @@ export default function StockControlTab() {
   const [documentType, setDocumentType] = useState('ANH');
   const [documentFile, setDocumentFile] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [warehouseLoadError, setWarehouseLoadError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -47,7 +52,8 @@ export default function StockControlTab() {
       const rows = res.data || [];
       setWarehouses(rows);
       setWarehouseId(rows[0]?.id || null);
-    }).catch((e) => message.error(errorText(e)));
+      setWarehouseLoadError('');
+    }).catch((e) => { if (active) setWarehouseLoadError(`Không tải được danh sách kho: ${errorText(e)}`); });
     return () => { active = false; };
   }, []);
 
@@ -66,6 +72,7 @@ export default function StockControlTab() {
   const load = useCallback(async () => {
     if (!warehouseId) return;
     const request = ++requestSeq.current;
+    setLoading(true);
     try {
       const [s, n, c, q] = await Promise.all([
         api.getTonKho({ khoId: warehouseId }),
@@ -78,7 +85,10 @@ export default function StockControlTab() {
       setStock(rows); setSerials(n.data || []);
       setCounts(c.data || []); setQuarantines(q.data || []);
       await resolvePolicies(rows);
-    } catch (e) { message.error(errorText(e)); }
+      setLoadError('');
+    } catch (e) {
+      if (request === requestSeq.current) setLoadError(`Không cập nhật được dữ liệu kiểm kê: ${errorText(e)}`);
+    } finally { if (request === requestSeq.current) setLoading(false); }
   }, [warehouseId, resolvePolicies]);
 
   useEffect(() => { Promise.resolve().then(load); }, [load]);
@@ -210,26 +220,30 @@ export default function StockControlTab() {
     <Alert type="info" showIcon
       message="Kiểm kê và cách ly vật tư có người lập, người duyệt riêng"
       description="Kiểm kê yêu cầu nhập đủ mọi dòng tồn của kho. Hàng lỗi được cách ly, kiểm tra, tải ảnh và biên bản; quản lý duyệt trước khi nhập lại, thanh lý hoặc tiêu hủy." />
+    {warehouseLoadError && <Alert type="error" showIcon message={warehouseLoadError} />}
+    {loadError && <Alert type="error" showIcon message={loadError}
+      action={<Button size="small" onClick={load}>Thử lại</Button>} />}
     <Space wrap>
       <Select style={{ width: 240 }} value={warehouseId} onChange={(id) => {
         requestSeq.current += 1;
         setStock([]); setSerials([]); setCounts([]); setQuarantines([]);
+        setLoadError('');
         setCountOpen(false); setCountDetail(null); setQuarantineOpen(false);
         setWarehouseId(id);
       }}
         placeholder="Chọn kho" options={warehouses.map((x) => ({ value: x.id, label: x.tenKho }))} />
-      <Button onClick={load} disabled={!warehouseId}>Làm mới</Button>
-      <Button type="primary" disabled={!warehouseId || !stock.length} onClick={openCount}>Lập kiểm kê</Button>
-      <Button disabled={!warehouseId || !stock.some((x) => x.soLuongTon > 0)}
+      <Button onClick={load} disabled={!warehouseId} loading={loading}>Làm mới</Button>
+      <Button type="primary" disabled={!warehouseId || !stock.length || !!loadError} onClick={openCount}>Lập kiểm kê</Button>
+      <Button disabled={!warehouseId || !!loadError || !stock.some((x) => x.soLuongTon > 0)}
         onClick={() => { quarantineForm.resetFields(); setQuarantineOpen(true); }}>Cách ly hàng lỗi</Button>
     </Space>
     <Tabs items={[
-      { key: 'counts', label: `Kiểm kê (${counts.length})`, children: <Table size="small"
-        dataSource={counts} rowKey="id" pagination={{ pageSize: 8 }} columns={[
+      { key: 'counts', label: `Kiểm kê (${loadError ? '—' : counts.length})`, children: <Table size="small" loading={loading}
+        dataSource={loadError ? [] : counts} rowKey="id" pagination={{ pageSize: 8 }} columns={[
           { title: 'Phiếu', dataIndex: 'id', render: (v) => `#${v}` },
           { title: 'Lập lúc', dataIndex: 'taoLuc', render: dateTime },
           { title: 'Người kiểm', dataIndex: 'nguoiKiemId', render: (v) => `#${v}` },
-          { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+          { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
           { title: 'Ghi chú / lý do', render: (_, x) => x.lyDoQuyetDinh || x.ghiChu || '—' },
           { title: '', render: (_, x) => <Space>
             <Button size="small" onClick={() => showCount(x.id)}>Chi tiết</Button>
@@ -239,17 +253,17 @@ export default function StockControlTab() {
             </>}
           </Space> },
         ]} /> },
-      { key: 'quarantine', label: `Cách ly (${quarantines.length})`, children: <Table size="small"
-        dataSource={quarantines} rowKey="id" pagination={{ pageSize: 8 }} columns={[
+      { key: 'quarantine', label: `Cách ly (${loadError ? '—' : quarantines.length})`, children: <Table size="small" loading={loading}
+        dataSource={loadError ? [] : quarantines} rowKey="id" pagination={{ pageSize: 8 }} columns={[
           { title: 'Hồ sơ', dataIndex: 'id', render: (v) => `#${v}` },
           { title: 'Linh kiện', dataIndex: 'linhKienId', render: partName },
           { title: 'Serial', dataIndex: 'linhKienSerialId', render: (id) =>
             serials.find((s) => s.id === id)?.soSerial || (id ? `#${id}` : '—') },
           { title: 'SL', dataIndex: 'soLuong' },
           { title: 'Lý do cách ly', dataIndex: 'lyDo' },
-          { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+          { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
           { title: 'Hồ sơ xử lý', render: (_, x) => x.hoSo
-            ? <><Tag>{x.hoSo.trangThai}</Tag><Text>{x.hoSo.huongXuLy} · {Number(x.hoSo.giaTriUocTinh).toLocaleString('vi-VN')} ₫</Text></>
+            ? <><StatusTag value={x.hoSo.trangThai} /><Text>{dispositionLabel(x.hoSo.huongXuLy)} · {Number(x.hoSo.giaTriUocTinh).toLocaleString('vi-VN')} ₫</Text></>
             : 'Chưa đề xuất' },
           { title: 'Người lập', dataIndex: 'nguoiTaoId', render: (v) => `#${v}` },
           { title: '', render: (_, x) => <Space wrap>
@@ -263,7 +277,7 @@ export default function StockControlTab() {
             </>}
             {user?.role === 'admin' && x.hoSo?.trangThai === 'DA_DUYET' &&
               <Button size="small" type="primary" onClick={() => chooseDecision('quarantine', x.id, x.hoSo.huongXuLy)}>
-                Thực hiện {x.hoSo.huongXuLy}</Button>}
+                Thực hiện {dispositionLabel(x.hoSo.huongXuLy).toLowerCase()}</Button>}
           </Space> },
         ]} /> },
     ]} />
@@ -312,7 +326,7 @@ export default function StockControlTab() {
       <Alert type="info" showIcon style={{ marginBottom: 12 }}
         message="Cần ít nhất một ảnh hiện trạng và một biên bản kiểm tra trước khi duyệt." />
       <Table size="small" dataSource={documents} rowKey="id" pagination={false} columns={[
-        { title: 'Loại', dataIndex: 'loai' }, { title: 'Tệp', dataIndex: 'tenGoc' },
+        { title: 'Loại', dataIndex: 'loai', render: statusLabel }, { title: 'Tệp', dataIndex: 'tenGoc' },
         { title: '', render: (_, x) => <Button size="small" onClick={() => viewDocument(x)}>Xem</Button> },
       ]} />
       {documentCase?.trangThai === 'CHO_DUYET' && <Space wrap style={{ marginTop: 12 }}>
@@ -326,7 +340,7 @@ export default function StockControlTab() {
 
     <Modal title={`Chi tiết kiểm kê #${countDetail?.id || ''}`} open={!!countDetail}
       width={900} footer={null} onCancel={() => setCountDetail(null)} destroyOnHidden>
-      <Text>Trạng thái: {countDetail?.trangThai} · Người kiểm #{countDetail?.nguoiKiemId}</Text>
+      <Text>Trạng thái: {statusLabel(countDetail?.trangThai)} · Người kiểm #{countDetail?.nguoiKiemId}</Text>
       <Table style={{ marginTop: 12 }} size="small" dataSource={countDetail?.chiTiet || []}
         rowKey="linhKienId" pagination={false} columns={[
           { title: 'Linh kiện', dataIndex: 'linhKienId', render: partName },
@@ -369,7 +383,7 @@ export default function StockControlTab() {
       open={!!decision} okText="Xác nhận" confirmLoading={busy}
       onCancel={() => setDecision(null)} onOk={submitDecision} destroyOnHidden>
       <Alert type="warning" showIcon style={{ marginBottom: 12 }}
-        message={`Quyết định: ${decision?.verdict || ''}`}
+        message={`Quyết định: ${dispositionLabel(decision?.verdict)}`}
         description="Người lập không được tự duyệt hồ sơ của mình." />
       <Input.TextArea maxLength={500} rows={3} value={decisionReason}
         onChange={(e) => setDecisionReason(e.target.value)} placeholder="Lý do quyết định (bắt buộc)" />

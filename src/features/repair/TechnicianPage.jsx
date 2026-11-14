@@ -7,6 +7,8 @@ import TicketPhotos from '../../components/TicketPhotos';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 import { useLocation } from 'react-router-dom';
+import StatusTag from '../../components/StatusTag';
+import { statusLabel } from '../../utils/status';
 
 const { Title, Text } = Typography;
 const transitions = {
@@ -30,19 +32,25 @@ export default function TechnicianPage() {
   const [technicians, setTechnicians] = useState([]);
   const [diagnosis, setDiagnosis] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ticketLoadError, setTicketLoadError] = useState('');
+  const [openingTicketId, setOpeningTicketId] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
-    try { setTickets((await api.getPhieuSuaChua()).data || []); }
-    catch (e) { message.error(errorText(e)); }
+    try {
+      setTickets((await api.getPhieuSuaChua()).data || []);
+      setTicketLoadError('');
+    }
+    catch (e) { setTicketLoadError(`Không cập nhật được danh sách phiếu: ${errorText(e)}`); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
     let active = true;
-    api.getPhieuSuaChua().then((r) => { if (active) setTickets(r.data || []); })
-      .catch((e) => message.error(errorText(e)));
+    api.getPhieuSuaChua().then((r) => {
+      if (active) { setTickets(r.data || []); setTicketLoadError(''); }
+    }).catch((e) => { if (active) setTicketLoadError(`Không tải được danh sách phiếu: ${errorText(e)}`); });
     return () => { active = false; };
   }, []);
 
@@ -53,18 +61,18 @@ export default function TechnicianPage() {
   }, [user?.role]);
 
   const open = useCallback(async (ticket) => {
-    setSelected(ticket);
-    setDiagnosis(ticket.ketQuaKiemTra || '');
-    form.resetFields();
+    setOpeningTicketId(ticket.id);
     try {
       const [detail, parts] = await Promise.all([
         api.getChiTietPhieuSuaChua(ticket.id), api.getXuatKhoPhieu(ticket.id),
       ]);
+      form.resetFields();
       setSelected(detail.data);
       setDiagnosis(detail.data.ketQuaKiemTra || '');
       setIssued(parts.data || []);
     }
-    catch (e) { message.error(errorText(e)); }
+    catch (e) { message.error(`Không mở được phiếu: ${errorText(e)}`); }
+    finally { setOpeningTicketId(null); }
   }, [form]);
 
   useEffect(() => {
@@ -132,24 +140,33 @@ export default function TechnicianPage() {
     <Tabs items={[
       { key: 'jobs', label: 'Phiếu sửa chữa', children: <>
         <Button onClick={reload} style={{ marginBottom: 12 }}>Làm mới</Button>
+        {ticketLoadError && <Alert type="error" showIcon style={{ marginBottom: 12 }}
+          message={ticketLoadError} action={<Button size="small" onClick={reload}>Thử lại</Button>} />}
         <Table dataSource={tickets} loading={loading} rowKey="id" pagination={{ pageSize: 10 }}
           scroll={{ x: 850 }} columns={[
             { title: 'Mã phiếu', dataIndex: 'maPhieu' },
             { title: 'Thiết bị', dataIndex: 'tenThietBi' },
             { title: 'Lỗi khách báo', dataIndex: 'tinhTrangLoi' },
             { title: 'Ngày nhận', dataIndex: 'ngayNhan', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
-            { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+            { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
             { title: 'Nhận máy', dataIndex: 'ktvNhanLuc', render: (v, row) => v
               ? <Tag color="green">Đã nhận</Tag>
               : ['HOAN_THANH', 'DA_TRA', 'HUY'].includes(row.trangThai)
                 ? <Tag>Không ghi nhận</Tag> : <Tag>Chưa xác nhận</Tag> },
-            { title: '', render: (_, row) => <Button onClick={() => open(row)}>Xử lý</Button> },
+            { title: '', render: (_, row) => <Button loading={openingTicketId === row.id}
+              onClick={() => open(row)}>Xử lý</Button> },
           ]} />
       </> },
       { key: 'materials', label: 'Yêu cầu vật tư', children: <VatTuTab /> },
     ]} />
     <Modal open={!!selected} title={selected?.maPhieu} onCancel={() => setSelected(null)}
-      styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
+      centered width={960}
+      styles={{
+        content: { maxHeight: 'calc(100dvh - 32px)', display: 'flex', flexDirection: 'column' },
+        header: { flexShrink: 0 },
+        body: { minHeight: 0, overflowY: 'auto' },
+        footer: { flexShrink: 0 },
+      }}
       onOk={() => form.submit()} okText="Lưu trạng thái" confirmLoading={busy}
       okButtonProps={{ disabled: (user?.role === 'technician' && !selected?.laKtvChinh)
         || !(transitions[selected?.trangThai] || []).length ||
@@ -202,7 +219,7 @@ export default function TechnicianPage() {
         <TicketPhotos key={selected.id} ticketId={selected.id} role={user?.role} ticketStatus={selected.trangThai} />
         <Form form={form} layout="vertical" onFinish={submit}>
           <Form.Item name="trangThai" label="Chuyển sang" rules={[{ required: true }]}>
-            <Select options={(transitions[selected.trangThai] || []).map((x) => ({ value: x, label: x }))} />
+            <Select options={(transitions[selected.trangThai] || []).map((x) => ({ value: x, label: statusLabel(x) }))} />
           </Form.Item>
           <Form.Item name="ghiChu" label="Ghi chú xử lý"><Input.TextArea rows={2} maxLength={500} /></Form.Item>
           <Form.Item noStyle shouldUpdate={(p, c) => p.trangThai !== c.trangThai}>{({ getFieldValue }) =>

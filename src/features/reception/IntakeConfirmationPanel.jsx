@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, Input, Modal, Select, Space, Table, Tag, message } from 'antd';
 import { api } from '../../services/api';
+import { statusLabel } from '../../utils/status';
 
 const errorText = (e) => e.response?.data?.message || e.message || 'Không thể xử lý biên nhận.';
 
@@ -104,7 +105,7 @@ export default function IntakeConfirmationPanel({ ticketId, ticketStatus, onConf
     <Table size="small" style={{ marginTop: 12 }} dataSource={photos} rowKey="id"
       pagination={{ pageSize: 5 }} columns={[
         { title: 'Ảnh', dataIndex: 'id', render: (id) => `#${id}` },
-        { title: 'Loại', dataIndex: 'loai', render: (v) => <Tag>{v}</Tag> },
+        { title: 'Loại', dataIndex: 'loai', render: (v) => <Tag>{statusLabel(v)}</Tag> },
         { title: 'Mô tả', dataIndex: 'moTa', render: (v) => v || '—' },
         { title: '', render: (_, row) => <Button size="small" onClick={() => viewPhoto(row.id)}>Xem</Button> },
       ]} />

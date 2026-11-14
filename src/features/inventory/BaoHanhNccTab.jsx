@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, message } from 'antd';
+import { Alert, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, message } from 'antd';
 import { api } from '../../services/api';
+import StatusTag from '../../components/StatusTag';
+import { dispositionLabel } from '../../utils/status';
 
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
 
@@ -13,6 +15,8 @@ export default function BaoHanhNccTab() {
   const [claims, setClaims] = useState([]);
   const [khos, setKhos] = useState([]);
   const [receipts, setReceipts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(null);
   const [sendSource, setSendSource] = useState('KHO');
@@ -27,29 +31,23 @@ export default function BaoHanhNccTab() {
   const partId = Form.useWatch('linhKienId', form);
 
   const reload = useCallback(async () => {
-    try {
-      const [r, sn, pn] = await Promise.all([
-        api.getBaoHanhNccV3(), api.getLinhKienSerials(), api.getPhieuNhap(),
-      ]);
-      setRows(r.data || []); setSerials(sn.data || []); setReceipts(pn.data || []);
-    }
-    catch (e) { message.error(errorText(e)); }
+    setLoading(true);
+    const results = await Promise.allSettled([
+      api.getBaoHanhNccV3(), api.getNhaCungCap(), api.getLinhKien(),
+      api.getLinhKienSerials(), api.getBaoHanhKhachV3(), api.getKho(), api.getPhieuNhap(),
+    ]);
+    const setters = [setRows, setSuppliers, setParts, setSerials, setClaims, setKhos, setReceipts];
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') setters[index](result.value.data || []);
+    });
+    setLoadError(results.some((result) => result.status === 'rejected')
+      ? 'Một phần hồ sơ hoặc danh mục bảo hành nhà cung cấp chưa tải được. Dữ liệu đang hiển thị có thể đã cũ.' : '');
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    let active = true;
-    Promise.all([api.getBaoHanhNccV3(), api.getNhaCungCap(), api.getLinhKien(),
-      api.getLinhKienSerials(), api.getBaoHanhKhachV3(), api.getKho(), api.getPhieuNhap()])
-      .then(([r, s, p, sn, c, k, pn]) => {
-        if (!active) return;
-        setRows(r.data || []); setSuppliers(s.data || []); setParts(p.data || []);
-        setSerials(sn.data || []); setClaims(c.data || []);
-        setKhos(k.data || []);
-        setReceipts(pn.data || []);
-      })
-      .catch((e) => message.error(errorText(e)));
-    return () => { active = false; };
-  }, []);
+    Promise.resolve().then(reload);
+  }, [reload]);
 
   const perform = async (action, success) => {
     setBusy(true);
@@ -61,6 +59,9 @@ export default function BaoHanhNccTab() {
   return <Space direction="vertical" style={{ width: '100%' }}>
     <Alert type="info" showIcon message="Hồ sơ bảo hành nhà cung cấp"
       description="Chọn nguồn hàng khi gửi. Sau khi nhận lại, ghi cách xử lý kho; hàng thay thế cần có phiếu nhập đã xác nhận." />
+    {loadError && <Alert type="error" showIcon message={loadError}
+      action={<Button size="small" onClick={reload}>Thử lại</Button>} />}
+    <Button onClick={reload} loading={loading}>Làm mới hồ sơ</Button>
     <Card title="Lập hồ sơ gửi nhà cung cấp" size="small">
       <Form form={form} layout="inline" initialValues={{ soLuong: 1 }} style={{ gap: 8 }}
         onFinish={(v) => perform(async () => {
@@ -87,18 +88,20 @@ export default function BaoHanhNccTab() {
         <Form.Item name="phieuBaoHanhId"><Select allowClear showSearch optionFilterProp="label"
           placeholder="Bảo hành khách (nếu có)" style={{ width: 210 }}
           options={claims.map((x) => ({ value: x.id, label: `#${x.id} — ${x.loiKhachBao}` }))} /></Form.Item>
-        <Button type="primary" htmlType="submit" loading={busy}>Tạo hồ sơ</Button>
+        <Button type="primary" htmlType="submit" loading={busy} disabled={!!loadError}>Tạo hồ sơ</Button>
       </Form>
     </Card>
-    <Table dataSource={rows} rowKey="id" pagination={{ pageSize: 8 }} scroll={{ x: 900 }} columns={[
+    <Table dataSource={loadError ? [] : rows} loading={loading} rowKey="id"
+      locale={{ emptyText: loadError ? 'Chưa tải đủ hồ sơ bảo hành' : 'Chưa có hồ sơ bảo hành' }}
+      pagination={{ pageSize: 8 }} scroll={{ x: 900 }} columns={[
       { title: 'Mã', dataIndex: 'id', render: (v) => `#${v}` },
       { title: 'Nhà cung cấp', dataIndex: 'nhaCungCapId', render: (v) => suppliers.find((x) => x.id === v)?.tenNcc || `#${v}` },
       { title: 'Linh kiện', dataIndex: 'linhKienId', render: (v) => parts.find((x) => x.id === v)?.tenLinhKien || `#${v}` },
       { title: 'Serial', dataIndex: 'linhKienSerialId', render: (v) => serials.find((x) => x.id === v)?.soSerial || '—' },
       { title: 'Số lượng', dataIndex: 'soLuong' },
-      { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <Tag>{v}</Tag> },
+      { title: 'Trạng thái', dataIndex: 'trangThai', render: (v) => <StatusTag value={v} /> },
       { title: 'Kết quả', dataIndex: 'ketQua' },
-      { title: 'Xử lý kho', dataIndex: 'xuLyKho', render: (v) => v?.loai || '—' },
+      { title: 'Xử lý kho', dataIndex: 'xuLyKho', render: (v) => dispositionLabel(v?.loai) },
       { title: '', render: (_, row) => row.trangThai === 'CHO_GUI'
         ? <Button size="small" onClick={() => {
           const serial = serials.find((x) => x.id === row.linhKienSerialId);

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Form, Input, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Form, Input, Popconfirm, Select, Space, Table, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { api } from '../../services/api';
+import StatusTag from '../../components/StatusTag';
 
 const { Text } = Typography;
 const errorText = (error) => error.response?.data?.message || error.message || 'Thao tác thất bại.';
@@ -24,6 +25,8 @@ export default function BookingPanel() {
   const [slots, setSlots] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotError, setSlotError] = useState('');
+  const [appointmentsError, setAppointmentsError] = useState('');
   const [busy, setBusy] = useState(false);
   const slotRequest = useRef(0);
   const dateKey = date.format('YYYY-MM-DD');
@@ -33,16 +36,22 @@ export default function BookingPanel() {
     setLoadingSlots(true);
     try {
       const result = await api.getKhungGioLichHen(dateKey);
-      if (request === slotRequest.current) setSlots(result.data?.khungGio || []);
-    } catch (error) {
-      if (request === slotRequest.current) { setSlots([]); message.error(errorText(error)); }
+      if (request === slotRequest.current) {
+        setSlots(result.data?.khungGio || []);
+        setSlotError('');
+      }
+    } catch {
+      if (request === slotRequest.current) {
+        setSlots([]);
+        setSlotError('Không tải được khung giờ còn chỗ. Hãy thử lại.');
+      }
     } finally { if (request === slotRequest.current) setLoadingSlots(false); }
   }, [dateKey]);
 
   const reloadAppointments = useCallback(async () => {
     if (!isCustomer) return;
-    try { setAppointments((await api.getLichHenCuaToi()).data || []); }
-    catch (error) { message.error(errorText(error)); }
+    try { setAppointments((await api.getLichHenCuaToi()).data || []); setAppointmentsError(''); }
+    catch { setAppointmentsError('Không tải được lịch hẹn của bạn. Hãy thử làm mới.'); }
   }, [isCustomer]);
 
   useEffect(() => { Promise.resolve().then(reloadSlots); }, [reloadSlots]);
@@ -86,6 +95,8 @@ export default function BookingPanel() {
             Đăng nhập / đăng ký
           </Button>
         </Space> : <>
+        {slotError && <Alert type="warning" showIcon message={slotError}
+          action={<Button size="small" onClick={reloadSlots}>Thử lại</Button>} />}
         <Form form={form} layout="vertical" onFinish={book} style={{ maxWidth: 600 }}>
           <Form.Item label="Ngày đến cửa hàng">
             <DatePicker value={date} format="DD/MM/YYYY" allowClear={false}
@@ -94,7 +105,7 @@ export default function BookingPanel() {
             <Button style={{ marginLeft: 8 }} onClick={reloadSlots} loading={loadingSlots}>Làm mới giờ</Button>
           </Form.Item>
           <Form.Item name="thoiGianMongMuon" label="Khung giờ còn chỗ" rules={[{ required: true, message: 'Chọn khung giờ.' }]}>
-            <Select loading={loadingSlots} placeholder="Chọn giờ" options={slots.map((slot) => ({
+            <Select loading={loadingSlots} disabled={!!slotError} placeholder="Chọn giờ" options={slots.map((slot) => ({
               value: slot.thoiGian,
               label: `${vietnamTime(slot.thoiGian)} — còn ${slot.conCho} chỗ`,
               disabled: slot.conCho <= 0,
@@ -106,13 +117,15 @@ export default function BookingPanel() {
           <Form.Item name="moTaLoi" label="Mô tả lỗi" rules={[{ required: true }]}>
             <Input.TextArea maxLength={1000} rows={3} />
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={busy}>Gửi lịch hẹn</Button>
+          <Button type="primary" htmlType="submit" loading={busy} disabled={!!slotError}>Gửi lịch hẹn</Button>
         </Form>
+        {appointmentsError && <Alert type="warning" showIcon message={appointmentsError}
+          action={<Button size="small" onClick={reloadAppointments}>Thử lại</Button>} />}
         <Table size="small" title={() => 'Lịch hẹn của tôi'} rowKey="id"
           dataSource={appointments} pagination={{ pageSize: 5 }} columns={[
             { title: 'Thời gian', dataIndex: 'thoiGianMongMuon', render: vietnamDateTime },
             { title: 'Thiết bị', dataIndex: 'tenThietBi' },
-            { title: 'Trạng thái', dataIndex: 'trangThai', render: (value) => <Tag>{value}</Tag> },
+            { title: 'Trạng thái', dataIndex: 'trangThai', render: (value) => <StatusTag value={value} /> },
             { title: 'Ghi chú lễ tân', dataIndex: 'ghiChu', render: (value) => value || '—' },
             { title: '', render: (_, row) => ['CHO_XAC_NHAN', 'DA_XAC_NHAN'].includes(row.trangThai)
               && new Date(row.thoiGianMongMuon) > new Date()

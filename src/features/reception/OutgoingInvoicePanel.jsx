@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Table, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
+import StatusTag from '../../components/StatusTag';
 
 const { Text } = Typography;
 const errorText = (e) => e.response?.data?.message || e.message || 'Thao tác thất bại.';
@@ -14,11 +15,25 @@ export default function OutgoingInvoicePanel({ invoice }) {
   const [adjustForm] = Form.useForm();
   const [document, setDocument] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [loadedInvoiceId, setLoadedInvoiceId] = useState(null);
+  const requestId = useRef(0);
   const invoiceId = invoice?.id;
   const load = useCallback(async () => {
     if (!invoiceId) return;
-    try { setDocument(((await api.getHoaDonDienTuV3({ hoaDonId: invoiceId })).data || [])[0] || null); }
-    catch (e) { message.error(errorText(e)); }
+    const request = ++requestId.current;
+    setLoading(true);
+    setLoadError('');
+    try {
+      const result = await api.getHoaDonDienTuV3({ hoaDonId: invoiceId });
+      if (request !== requestId.current) return;
+      setDocument((result.data || [])[0] || null);
+      setLoadedInvoiceId(invoiceId);
+      setLoadError('');
+    }
+    catch (e) { if (request === requestId.current) setLoadError(`Không kiểm tra được chứng từ điện tử đã ghi: ${errorText(e)}`); }
+    finally { if (request === requestId.current) setLoading(false); }
   }, [invoiceId]);
   useEffect(() => { Promise.resolve().then(load); }, [load]);
 
@@ -48,13 +63,16 @@ export default function OutgoingInvoicePanel({ invoice }) {
     <Alert type="warning" showIcon style={{ marginBottom: 12 }}
       message="Chưa kết nối đơn vị hóa đơn điện tử"
       description="Mục này ghi lại chứng từ đã phát hành trên hệ thống của nhà cung cấp để đối chiếu với hóa đơn nội bộ. Thao tác tại đây không phát hành, hủy hoặc điều chỉnh hóa đơn điện tử thực tế." />
-    {document ? <Space direction="vertical" style={{ width: '100%' }}>
+    {loadError && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={loadError}
+      action={<Button size="small" onClick={load}>Thử lại</Button>} />}
+    {loading && <Text type="secondary">Đang kiểm tra chứng từ đã ghi…</Text>}
+    {!loading && !loadError && loadedInvoiceId === invoiceId && (document ? <Space direction="vertical" style={{ width: '100%' }}>
       <Text><b>{document.nhaCungCap}</b> · Số {document.soHoaDon} · {money(document.tongTien)}
-        {' · '}<Tag>{document.trangThai}</Tag></Text>
+        {' · '}<StatusTag value={document.trangThai} /></Text>
       <Text>Phát hành: {dayjs(document.ngayPhatHanh).format('DD/MM/YYYY HH:mm')}
         {' · '}Mã tra cứu: {document.maTraCuu || '—'}</Text>
       <Table size="small" dataSource={document.dieuChinh || []} rowKey="id" pagination={false} columns={[
-        { title: 'Loại', dataIndex: 'loai' }, { title: 'Số chứng từ', dataIndex: 'soChungTu' },
+        { title: 'Loại', dataIndex: 'loai', render: (v) => ({ DIEU_CHINH: 'Điều chỉnh', THAY_THE: 'Thay thế', HUY: 'Hủy' })[v] || v },
         { title: 'Lý do', dataIndex: 'lyDo' },
         { title: 'Chênh lệch', dataIndex: 'chenhLechTien', render: money },
       ]} />
@@ -84,6 +102,6 @@ export default function OutgoingInvoicePanel({ invoice }) {
           <DatePicker showTime format="DD/MM/YYYY HH:mm" /></Form.Item>
         <Form.Item name="maTraCuu"><Input maxLength={150} placeholder="Mã tra cứu" /></Form.Item>
         <Button type="primary" htmlType="submit" loading={busy}>Ghi chứng từ đã phát hành</Button>
-      </Form> : <Text type="secondary">Chưa ghi chứng từ điện tử cho hóa đơn này.</Text>}
+      </Form> : <Text type="secondary">Chưa ghi chứng từ điện tử cho hóa đơn này.</Text>)}
   </Card>;
 }

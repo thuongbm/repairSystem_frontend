@@ -1,5 +1,20 @@
 import axios from 'axios';
 
+export const STOCK_CHANGED_EVENT = 'techfix:stock-changed';
+export const WORK_CHANGED_EVENT = 'techfix:work-changed';
+
+const stockMutationPaths = [
+  /^\/phieu-nhap\/tao-moi$/,
+  /^\/phieu-nhap\/\d+\/xac-nhan$/,
+  /^\/kho\/ton-kho\/\d+\/\d+\/muc-ton-toi-thieu$/,
+  /^\/phieu-sua-chua\/\d+\/xuat-kho$/,
+  /^\/v3\/phieu-sua-chua\/\d+\/vat-tu\/tra-kho$/,
+  /^\/v3\/kiem-ke-kho\/\d+\/duyet$/,
+  /^\/v3\/cach-ly-vat-tu$/,
+  /^\/v3\/cach-ly-vat-tu\/\d+\/xu-ly$/,
+  /^\/v3\/bao-hanh\/nha-cung-cap\/\d+\/(gui|xu-ly-kho)$/,
+];
+
 const client = axios.create({
   baseURL: '/api',
   headers: {
@@ -18,7 +33,20 @@ client.interceptors.request.use((config) => {
 
 // Xử lý tự động khi token hết hạn (401)
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config.method?.toLowerCase();
+    if (['post', 'put', 'patch', 'delete'].includes(method)) {
+      const path = response.config.url?.split('?')[0] || '';
+      const stockChanged = stockMutationPaths.some((pattern) => pattern.test(path));
+      if (stockChanged) window.dispatchEvent(new Event(STOCK_CHANGED_EVENT));
+      if (stockChanged || /^\/(?:v3\/)?phieu-sua-chua(?:\/|$)/.test(path)
+        || /^\/lich-hen(?:\/|$)/.test(path)
+        || /^\/v3\/cong-viec-sua-chua(?:\/|$)/.test(path)) {
+        window.dispatchEvent(new Event(WORK_CHANGED_EVENT));
+      }
+    }
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
       // Chỉ xoá và chuyển hướng nếu không phải đang gọi API login
@@ -37,6 +65,8 @@ client.interceptors.response.use(
 export const api = {
   taoKhoV3: async (payload) =>
     (await client.post('/v3/kho', payload)).data,
+  xoaKhoV3: async (id) =>
+    (await client.delete(`/v3/kho/${id}`)).data,
   // Auth
   login: async (username, password) => {
     const res = await client.post('/auth/login', { username, password });
@@ -155,6 +185,8 @@ export const api = {
     (await client.put(`/v3/mau-linh-kien/${id}`, payload)).data,
   getYeuCauVatTuV3: async (phieuId) =>
     (await client.get(`/v3/phieu-sua-chua/${phieuId}/vat-tu/yeu-cau`)).data,
+  getPhieuCanXuLyVatTuV3: async () =>
+    (await client.get('/v3/vat-tu/phieu-can-xu-ly')).data,
   taoYeuCauVatTuV3: async (phieuId, payload) =>
     (await client.post(`/v3/phieu-sua-chua/${phieuId}/vat-tu/yeu-cau`, payload)).data,
   duyetYeuCauVatTuV3: async (phieuId, id, payload) =>

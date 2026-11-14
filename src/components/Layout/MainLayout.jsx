@@ -154,7 +154,7 @@ const MainLayout = () => {
               TechFix
             </span>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, letterSpacing: '0.02em' }}>
-              Service OS
+              Quản lý sửa chữa
             </span>
           </div>
         </div>

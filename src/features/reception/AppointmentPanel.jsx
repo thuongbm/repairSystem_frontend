@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Popconfirm, Select, Space, Table, Tag, message } from 'antd';
+import { Button, Card, Popconfirm, Select, Space, Table, message } from 'antd';
 import { api } from '../../services/api';
+import StatusTag from '../../components/StatusTag';
 
 const errorText = (error) => error.response?.data?.message || error.message || 'Thao tác thất bại.';
 const vietnamDateTime = (value) => new Intl.DateTimeFormat('vi-VN', {
@@ -43,7 +44,7 @@ export default function AppointmentPanel({ tickets }) {
         { title: 'Khách', render: (_, row) => <>{row.tenKhachHang}<br />{row.soDienThoai}</> },
         { title: 'Thời gian', dataIndex: 'thoiGianMongMuon', render: vietnamDateTime },
         { title: 'Thiết bị / lỗi', render: (_, row) => <>{row.tenThietBi}<br />{row.moTaLoi}</> },
-        { title: 'Trạng thái', dataIndex: 'trangThai', render: (value) => <Tag>{value}</Tag> },
+        { title: 'Trạng thái', dataIndex: 'trangThai', render: (value) => <StatusTag value={value} /> },
         { title: 'Xử lý', render: (_, row) => row.trangThai === 'CHO_XAC_NHAN'
           ? <Space>
             <Button size="small" type="primary" loading={busyId === row.id}

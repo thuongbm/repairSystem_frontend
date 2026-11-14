@@ -1,22 +1,25 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/Layout/MainLayout';
-import CustomerPortal from './features/customer/CustomerPortalPage';
-import Dashboard from './features/dashboard/DashboardPage';
-import FinancialReconciliation from './features/dashboard/FinancialReconciliationPage';
-import Reception from './features/reception/ReceptionPage';
-import Pricing from './features/catalog/PricingPage';
-import HR from './features/staff/StaffPage';
-import Login from './features/auth/LoginPage';
-import Warehouse from './features/inventory/WarehousePage';
-import Technician from './features/repair/TechnicianPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthProvider';
 import './App.css';
+
+const CustomerPortal = lazy(() => import('./features/customer/CustomerPortalPage'));
+const Dashboard = lazy(() => import('./features/dashboard/DashboardPage'));
+const FinancialReconciliation = lazy(() => import('./features/dashboard/FinancialReconciliationPage'));
+const Reception = lazy(() => import('./features/reception/ReceptionPage'));
+const Pricing = lazy(() => import('./features/catalog/PricingPage'));
+const HR = lazy(() => import('./features/staff/StaffPage'));
+const Login = lazy(() => import('./features/auth/LoginPage'));
+const Warehouse = lazy(() => import('./features/inventory/WarehousePage'));
+const Technician = lazy(() => import('./features/repair/TechnicianPage'));
 
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <Suspense fallback={<div role="status" className="app-loading">Đang tải giao diện…</div>}>
         <Routes>
           {/* CỔNG KHÁCH HÀNG: Công khai cho mọi người truy cập */}
           <Route path="/" element={<CustomerPortal />} />
@@ -60,6 +63,7 @@ function App() {
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </Router>
     </AuthProvider>
   );
